@@ -5,6 +5,7 @@ date: 2023-02-23
 
 In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They auto-vectorize loops, so that multiple scalar operations can be packed into a SIMD vector instruction.
 
+TODO: more intro here!!!
 
 Let's look at a simple example (`Test.java`):
 ```
@@ -42,3 +43,24 @@ Run this to see more details about the SuperWord algorithm, and its steps:
 ```
 ./java -XX:CompileCommand=printcompilation,Test::test -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:+TraceSuperWord Test.java
 ```
+
+I ran it with this command, and recorded it with `rr`:
+```
+// -XX:LoopMaxUnroll=5 limits the unrolling factor to 4x.
+rr ./java -XX:CompileCommand=printcompilation,Test::test -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:+TraceSuperWord -XX:+TraceLoopOpts -XX:LoopMaxUnroll=5 Test.java
+rr replay
+
+// Set breakpoint before SuperWord is applied:
+(rr) b SuperWord::SLP_extract
+
+// Extract all nodes of the loop before SuperWord is applied:
+(rr) p lpt()->_head->dump_bfs(1000,lpt()->_head, "#A+$")
+
+// Run SuperWord:
+(rr) finish
+
+// Extract all nodes of loop after SuperWord:
+(rr) p cl->dump_bfs(1000,cl, "#A+$")
+```
+
+The two dumps I visualize nicely:

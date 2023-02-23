@@ -101,7 +101,20 @@ bool SuperWord::SLP_extract() {
   // build dependence graph for each memory slice:
   // for every two memops in slice, check if they
   // are "!SWPointer::not_equal" (except Load -> Load)
+  // TODO: what is SuperWordRTDepCheck???
   dependence_graph();
+  
+  // Propagate narrower integer type back when upper bits not needed.
+  // Example: char a, b, c; a = b + c;
+  // The AddI gets velt_type char.
+  compute_vector_element_type();
+  
+  // initial Packset: find adjacent, isomorphic, independent pairs of memops
+  // perform alignment analysis (currently under some construction/bugfixing)
+  find_adjacent_refs();
+  
+  // follow use->def and def->use to add non memop pairs to PackSet
+  extend_packlist();
   
   TODO continue
 }

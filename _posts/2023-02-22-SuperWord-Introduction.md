@@ -86,6 +86,27 @@ StoreF -> StoreVector
 
 TODO: add quick picture overview.
 
+**Algorithm Overview**
+
+TODO: write
+
+```
+// Simplified from code:
+bool SuperWord::SLP_extract() {
+  // find memory slices
+  // construct reverse postorder (rpo) list of block members
+  // should we even vectorize? check if there is a store or reduction
+  if (!construct_bb()) {return false;}
+  
+  // build dependence graph for each memory slice:
+  // for every two memops in slice, check if they
+  // are "!SWPointer::not_equal" (except Load -> Load)
+  dependence_graph();
+  
+  TODO continue
+}
+```
+
 **Algorithm Step 0: Loop Unrolling**
 
 Unrolling: automatic or by hand

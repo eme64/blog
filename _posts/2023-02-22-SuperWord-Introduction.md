@@ -80,6 +80,12 @@ AddF -> AddVF // Note: "2 * x" was replaced by "x + x"
 StoreF -> StoreVector
 ```
 
+**Basic Ideas for the Algorithm**
+
+`independence`, `DAG`, `isomorphic`
+
+TODO: add quick picture overview.
+
 **Algorithm Step 0: Loop Unrolling**
 
 Unrolling: automatic or by hand
@@ -109,3 +115,8 @@ TODO: write
 **Algorithm Step 7: Schedule (patch the graph)**
 
 TODO: write
+
+
+**Appendix**
+
+Open Tasks and Questions

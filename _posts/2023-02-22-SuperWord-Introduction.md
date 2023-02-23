@@ -5,7 +5,11 @@ date: 2023-02-23
 
 In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They auto-vectorize loops, so that multiple scalar operations can be packed into a SIMD vector instruction.
 
+The algorithm has been implemented in the Hotspot JVM. However, there are a few things that have been altered for the implementation.
+
 TODO: more intro
+
+**First Example**
 
 Let's look at a simple Java example (`Test.java`):
 ```
@@ -64,7 +68,9 @@ rr replay
 ```
 
 The two dumps I visualize nicely:
+
 ![image](https://user-images.githubusercontent.com/32593061/220929536-698d5757-c54d-4770-8297-90067e4c6fd1.png)
+
 ![image (1)](https://user-images.githubusercontent.com/32593061/220929585-1f250cf3-0b1c-4e44-8901-e88ccf81f5fc.png)
 
 One can see that the scalar operations were replaced with their vector equivalent:
@@ -73,3 +79,33 @@ LoadF -> LoadVector
 AddF -> AddVF // Note: "2 * x" was replaced by "x + x"
 StoreF -> StoreVector
 ```
+
+**Algorithm Step 0: Loop Unrolling**
+
+Unrolling: automatic or by hand
+
+TODO: write
+
+**Algorithm Step 1: Alignment Analysis**
+
+TODO: write
+
+**Algorithm Step 2: Identifying Adjacent Memory References (create pair PackSet)**
+
+TODO: write
+
+**Algorithm Step 3: Extend PackSet (to non memory nodes)**
+
+TODO: write
+
+**Algorithm Step 4: Combine PackSet (stitch the pairs together)**
+
+TODO: write
+
+**Algorithm Step 6: Filter Packset (implementable and profitable)**
+
+TODO: write
+
+**Algorithm Step 7: Schedule (patch the graph)**
+
+TODO: write

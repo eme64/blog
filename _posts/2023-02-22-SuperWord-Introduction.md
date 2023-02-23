@@ -113,10 +113,20 @@ bool SuperWord::SLP_extract() {
   // perform alignment analysis (currently under some construction/bugfixing)
   find_adjacent_refs();
   
-  // follow use->def and def->use to add non memop pairs to PackSet
+  // extend PackSet from memops to non-memops pairs
+  // follow use->def and def->use
   extend_packlist();
   
-  TODO continue
+  // stitch pairs together: [a, b] + [b, c] -> [a, b, c]
+  // split them into multiple if larger than max vector size
+  combine_packs();
+  
+  // implemented? -> depends on hardware
+  // profitable?  -> are all use and def in loop vectorizable?
+  filter_packs();
+  
+  // hack the graph: replace the scalar ops with vector ops
+  schedule();
 }
 ```
 

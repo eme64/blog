@@ -82,7 +82,15 @@ StoreF -> StoreVector
 
 **Basic Ideas for the Algorithm**
 
-`independence`, `DAG`, `isomorphic`
+_DAG_: a `DAG` is a directed acyclic graph.
+
+_Given_: the `DAG` with ops of a loop-block. Only loops without control flow are considered.
+
+_Goal_: patch the `DAG` such that the scalar ops are packed into SIMD instructions. The new `DAG` must preserve the behavior of the old `DAG`.
+
+_isomorphic_: to pack scalar ops into a single SIMD instruction, they must be similar (to simplicy: same `Opcode` and `velt_type`).
+
+_independent_: two ops are `independent` if there is no path from one to the other. We can only pack independent ops into a SIMD vector, since they are executed concurrently, so one cannot use the other's output in any way.
 
 TODO: add quick picture overview.
 
@@ -101,7 +109,6 @@ bool SuperWord::SLP_extract() {
   // build dependence graph for each memory slice:
   // for every two memops in slice, check if they
   // are "!SWPointer::not_equal" (except Load -> Load)
-  // TODO: what is SuperWordRTDepCheck???
   dependence_graph();
   
   // Propagate narrower integer type back when upper bits not needed.

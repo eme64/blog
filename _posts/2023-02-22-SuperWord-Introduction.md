@@ -126,13 +126,14 @@ for (int j = 0; j < N; j++) { data[i] = 2 * data[i]; }
 
 I simplified the graph a little, but in essence the C2 graph looks like this:
 
-<img src="/blog/docs/assets/superword_images/001.png" width="50%">
+<img src="https://user-images.githubusercontent.com/32593061/222705239-14cf61c6-08ab-4a43-8bf3-62f9f76b3e49.png" width="50%">
+![001]()
 
 We see the two `Phi` nodes: one holds the `i` (IV: induction variable), the other holds the memory state. I aligned all load, add and store operations with the respective offset in the `data` array. We can see that all the load and store operations here are on the same memory slice, of the float array `data`.
 
 So far, we cannot see the parallelism in the graph. The `LoadF` of iteration `i+2` depends on the `StoreI` of iteration `i+1`. But we can prove that they do not access the same position in memory. Hence, we perform a dependency analysis, that gives us an improved dependency graph. In it, we ignore dependencies between loads and stores that do not access the same position in memory. In our example, we can remove all dependencies between the loop iterations.
 
-<img src="/blog/docs/assets/superword_images/002.png" width="50%">
+<img src="https://user-images.githubusercontent.com/32593061/222705315-9e2697d8-4498-42d3-b3f8-56d109e937e9.png" width="50%">
 
 Now, we see the parallelism in the dependency graph, that was apparent to the human eye when looking at the original Java code.
 
@@ -152,30 +153,67 @@ At this point, a few **definitions** and a more precise **problem statement** ar
 
 At this point, we pack pairs of memory operations that are `adjacent`, `isomorphic` and `independent`.
 
-<img src="/blog/docs/assets/superword_images/003.png" width="50%">
-<img src="/blog/docs/assets/superword_images/004.png" width="50%">
+<img src="https://user-images.githubusercontent.com/32593061/222705875-909b0142-1a02-476a-b7db-e69bf393243d.png" width="50%">
+
+<img src="https://user-images.githubusercontent.com/32593061/222705710-d10aeb76-c658-48c9-ae20-21f700c0911e.png" width="50%">
 
 Now we `extend` from the memory operations to the non-memory operations. We do this by starting at a pair that we already have, and checking if the pair has an input pair, or an output pair that matches (ie. is `isomorphic` and `independent`).
 
-<img src="/blog/docs/assets/superword_images/005.png" width="50%">
+<img src="https://user-images.githubusercontent.com/32593061/222706004-88f45c02-8482-4081-a3ac-0463e1412a50.png" width="50%">
 
 Once we have found all pairs, we can `combine` them into vectors, by stitching the pairs together: `[A, B] + [B, C] -> [A, B, C]`.
 
-<img src="/blog/docs/assets/superword_images/006.png" width="50%">
+<img src="https://user-images.githubusercontent.com/32593061/222706026-1fd242b2-b314-4f3e-a4e5-73796223469d.png" width="50%">
 
 At this point, we need to do some sanity checks, and determine if vectorizing is indeed profitable.
 
 Let's look at two other examples. In the first, we store "backward" (`i-1`), in the second we store "forward" (`i+1`). In the first, the loop iterations are `independent`, while in the second, we see that the `StoreF` from the previous iteration stores to the position that the next iteration's `LoadF` loads from. Such a depedency must be respected. Now, we see that the loads are `not independent`.
 
-<img src="/blog/docs/assets/superword_images/010.png" width="50%">
+<img src="https://user-images.githubusercontent.com/32593061/222706036-ea008dde-cafd-45f0-9e19-c26021fd8a90.png" width="50%">
 
 These are the basic ideas used in the algorith and implementation. It may seem simple now, but the complexity lies in the details.
 
-**Algorithm Overview**
+We will now look at each step of the algorithm in more detail.
+
+**Algorithm Step 0: Loop Unrolling**
+
+Unrolling: automatic or by hand
+
+TODO: write
+
+**Algorithm Step 1: Alignment Analysis**
+
+TODO: write
+
+**Algorithm Step 2: Identifying Adjacent Memory References (create pair PackSet)**
+
+TODO: write
+
+**Algorithm Step 3: Extend PackSet (to non memory nodes)**
+
+TODO: write
+
+**Algorithm Step 4: Combine PackSet (stitch the pairs together)**
+
+TODO: write
+
+**Algorithm Step 6: Filter Packset (implementable and profitable)**
+
+TODO: write
+
+**Algorithm Step 7: Schedule (patch the graph)**
+
+TODO: write
+
+**Implementation Overview**
 
 TODO: write
 
 ```
+// perform analysis to see how much a loop should be unrolled
+// based on the types used and how many elements would fit in a vector
+IdealLoopTree::policy_unroll_slp_analysis
+
 // Simplified from code:
 bool SuperWord::SLP_extract() {
   // find memory slices
@@ -213,37 +251,6 @@ bool SuperWord::SLP_extract() {
   schedule();
 }
 ```
-
-**Algorithm Step 0: Loop Unrolling**
-
-Unrolling: automatic or by hand
-
-TODO: write
-
-**Algorithm Step 1: Alignment Analysis**
-
-TODO: write
-
-**Algorithm Step 2: Identifying Adjacent Memory References (create pair PackSet)**
-
-TODO: write
-
-**Algorithm Step 3: Extend PackSet (to non memory nodes)**
-
-TODO: write
-
-**Algorithm Step 4: Combine PackSet (stitch the pairs together)**
-
-TODO: write
-
-**Algorithm Step 6: Filter Packset (implementable and profitable)**
-
-TODO: write
-
-**Algorithm Step 7: Schedule (patch the graph)**
-
-TODO: write
-
 
 **Appendix**
 

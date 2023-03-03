@@ -119,17 +119,57 @@ StoreF -> StoreVector
 
 **Basic Ideas for the Algorithm**
 
-_DAG_: a `DAG` is a directed acyclic graph.
+We will look at the basic ideas of the algirithm on the same example loop, which we unroll twice (`4x` unrolled).
+```
+for (int j = 0; j < N; j++) { data[i] = 2 * data[i]; }
+```
 
-_Given_: the `DAG` with ops of a basic block (loop body, no control flow).
+I simplified the graph a little, but in essence the C2 graph looks like this:
 
-_Goal_: patch the `DAG` such that the scalar ops are packed into SIMD instructions. The new `DAG` must preserve the behavior of the old `DAG`.
+<img src="superword_images/001.png" width="50%">
 
-_isomorphic_: to pack scalar ops into a single SIMD instruction, they must be similar (to simplicy: same `Opcode` and `velt_type`).
+We see the two `Phi` nodes: one holds the `i` (IV: induction variable), the other holds the memory state. I aligned all load, add and store operations with the respective offset in the `data` array. We can see that all the load and store operations here are on the same memory slice, of the float array `data`.
 
-_independent_: two ops are `independent` if there is no path from one to the other. We can only pack independent ops into a SIMD vector, since they are executed concurrently, so one cannot use the other's output in any way.
+So far, we cannot see the parallelism in the graph. The `LoadF` of iteration `i+2` depends on the `StoreI` of iteration `i+1`. But we can prove that they do not access the same position in memory. Hence, we perform a dependency analysis, that gives us an improved dependency graph. In it, we ignore dependencies between loads and stores that do not access the same position in memory. In our example, we can remove all dependencies between the loop iterations.
 
-TODO: add quick picture overview.
+<img src="superword_images/002.png" width="50%">
+
+Now, we see the parallelism in the dependency graph, that was apparent to the human eye when looking at the original Java code.
+
+At this point, a few **definitions** and a more precise **problem statement** are due:
+
+`DAG`: a `DAG` is a directed acyclic graph.
+
+`Given`: the `DAG` with ops of a basic block (loop body, no control flow).
+
+`Goal`: patch the `DAG` such that the scalar ops are packed into SIMD instructions. The new `DAG` must preserve the behavior of the old `DAG`.
+
+`isomorphic`: to pack scalar ops into a single SIMD instruction, they must be similar (to simplicy: same `Opcode` and `velt_type`).
+
+`independent`: two ops are `independent` if there is no path from one to the other. We can only pack independent ops into a SIMD vector, since they are executed concurrently, so one cannot use the other's output in any way.
+
+`adjacent memory operations`: two memory operations that have a provable offset of exactly `sizeof(type)`. Two loads or two stores that are adjacent can thus potentially be packed into a single vector load or store.
+
+At this point, we pack pairs of memory operations that are `adjacent`, `isomorphic` and `independent`.
+
+<img src="superword_images/003.png" width="50%">
+<img src="superword_images/004.png" width="50%">
+
+Now we `extend` from the memory operations to the non-memory operations. We do this by starting at a pair that we already have, and checking if the pair has an input pair, or an output pair that matches (ie. is `isomorphic` and `independent`).
+
+<img src="superword_images/005.png" width="50%">
+
+Once we have found all pairs, we can `combine` them into vectors, by stitching the pairs together: `[A, B] + [B, C] -> [A, B, C]`.
+
+<img src="superword_images/006.png" width="50%">
+
+At this point, we need to do some sanity checks, and determine if vectorizing is indeed profitable.
+
+Let's look at two other examples. In the first, we store "backward" (`i-1`), in the second we store "forward" (`i+1`). In the first, the loop iterations are `independent`, while in the second, we see that the `StoreF` from the previous iteration stores to the position that the next iteration's `LoadF` loads from. Such a depedency must be respected. Now, we see that the loads are `not independent`.
+
+<img src="superword_images/010.png" width="50%">
+
+These are the basic ideas used in the algorith and implementation. It may seem simple now, but the complexity lies in the details.
 
 **Algorithm Overview**
 

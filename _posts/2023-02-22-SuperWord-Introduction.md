@@ -348,5 +348,17 @@ bool SuperWord::SLP_extract() {
    - [JDK-8302662](https://bugs.openjdk.org/browse/JDK-8302662): [SuperWord] Vectorize loop when value from last iteration is used after loop (Jatin)
    - [JDK-8302673](https://bugs.openjdk.org/browse/JDK-8302673): [SuperWord] MaxReduction and MinReduction should vectorize for int (Jatin)
    - [JDK-8302652](https://bugs.openjdk.org/browse/JDK-8302652): [SuperWord] Reduction should happen after loop, when possible (Emanuel?)
-   - [JDK-8303113](https://bugs.openjdk.org/browse/JDK-8303113): [SuperWord] investigate if enabling `_do_vector_loop` by default creates speedup
- - x
+   - [JDK-8303113](https://bugs.openjdk.org/browse/JDK-8303113): [SuperWord] investigate if enabling `_do_vector_loop` by default creates speedup (Emanuel?)
+   - [JDK-8300865](https://bugs.openjdk.org/browse/JDK-8300865): C2: product reduction in ProdRed_Double is not vectorized (Jatin)
+ - [JDK-8287087](https://bugs.openjdk.org/browse/JDK-8287087): C2: perform SLP reduction analysis on-demand (Roberto)
+ - [JDK-8255622](https://bugs.openjdk.org/browse/JDK-8255622): Combine all vectorization tests in one directory (Vladimir K?)
+ - Investigation: where do we not even start SuperWord where it could work? Where do we fail to vectorize during SuperWord? Can we find and fix these cases?
+ - Should we CMove more, to absorb control flow?
+
+**Appendix: Other Work**
+
+ - All you need is superword-level parallelism: systematic control-flow vectorization with SLP (2022)
+   - [paper](https://dl.acm.org/doi/abs/10.1145/3519939.3523701), [youtube](https://www.youtube.com/watch?v=9Hk3d7vHEGw). Handle control flow using masked vector instructions. Loop fusion: every element represents a loop. TODO investigate more.
+ - goSLP - Globally Optimized Superword Level Parallelism Framework (2018)
+   - [paper](https://dl.acm.org/doi/10.1145/3276480), [youtube](https://www.youtube.com/watch?v=5XoK9BeTP9Q). Statement packing using integer linear programming. Not JIT compatible.
+ - TODO add more. [this](https://www.youtube.com/watch?v=gIEn34LvyNo)

@@ -295,7 +295,7 @@ I have not investigated this much, so I cannot provide more details.
 
 **Implementation Overview**
 
-TODO: write
+This is a quick overview of the Hotspot JVM SuperWord implementation, with a few comments:
 
 ```
 // perform analysis to see how much a loop should be unrolled
@@ -341,6 +341,12 @@ bool SuperWord::SLP_extract() {
 }
 ```
 
-**Appendix**
+**Appendix: Open Tasks and Questions**
 
-Open Tasks and Questions
+ - Code has lots of open tasks (eg. implement PackNode and ExtractNode)
+ - I added a few recently:
+   - [JDK-8302662](https://bugs.openjdk.org/browse/JDK-8302662): [SuperWord] Vectorize loop when value from last iteration is used after loop (Jatin)
+   - [JDK-8302673](https://bugs.openjdk.org/browse/JDK-8302673): [SuperWord] MaxReduction and MinReduction should vectorize for int (Jatin)
+   - [JDK-8302652](https://bugs.openjdk.org/browse/JDK-8302652): [SuperWord] Reduction should happen after loop, when possible (Emanuel?)
+   - [JDK-8303113](https://bugs.openjdk.org/browse/JDK-8303113): [SuperWord] investigate if enabling `_do_vector_loop` by default creates speedup
+ - x

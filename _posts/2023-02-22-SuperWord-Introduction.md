@@ -127,7 +127,6 @@ for (int j = 0; j < N; j++) { data[i] = 2 * data[i]; }
 I simplified the graph a little, but in essence the C2 graph looks like this:
 
 <img src="https://user-images.githubusercontent.com/32593061/222705239-14cf61c6-08ab-4a43-8bf3-62f9f76b3e49.png" width="50%">
-![001]()
 
 We see the two `Phi` nodes: one holds the `i` (IV: induction variable), the other holds the memory state. I aligned all load, add and store operations with the respective offset in the `data` array. We can see that all the load and store operations here are on the same memory slice, of the float array `data`.
 
@@ -177,13 +176,38 @@ We will now look at each step of the algorithm in more detail.
 
 **Algorithm Step 0: Loop Unrolling**
 
-Unrolling: automatic or by hand
+As already explained earlier, the algorithm works on basic blocks. This can be the body of a loop (without any control flow). But it can be any basic block, even outside of loops.
 
-TODO: write
+The implementation in the Hotspot JVM currently only applies the SuperWord algorithm for loops. Since it is a JIT (just in time) compiler, one has to focus the time spent on optimizations to the places where it is most promising. That is most often loops.
+
+To ensure that the full size of the SIMD vectors can be filled, one needs to unroll loops with at least a multiple of `vector_width / sizeof(type)`. In the JVM code, this is further refined for each `type`. One will have to unroll less for an 8-byte `long`, than for a 2-byte `short`. Unrolling less means the algorithm has to process fewer noodes, and process them faster.
 
 **Algorithm Step 1: Alignment Analysis**
 
-TODO: write
+Sadly, the paper handles this fairly quickly and without detail. It refers to another publication of the same authors, which I could not find. I had to look at the JVM implementation to understand it better. However, currently there are still bugs that are being fixed, where the alignment analysis is wrong, and other cases where it is too restrictive.
+
+First, we need to extract the **dependency graph** from the C2 see of nodes. Here we make use of the `memory slices` that were discovered by `Escape Analysis` (an algorith that determines which memory accesses are related, and which are provably unrelated).
+We can ignore all inter-slice memory dependencies.
+Inside a memory slice, we need to ensure that `RAW` (read-after-write), `WAR` (write-after-read) and `WAW` (write-after-write) dependencies from the C2 graph are respected. But we can ignore `RAR` (read-after-read), since that is not a true dependency (swapping them has no effect).
+However, we can ignore `RAW`, `WAR` and `WAW` dependencies if they are provably accessing non-overlapping memory regions.
+The dependency graph now only consists of such `memory` edges, and all `data` edges from the C2 graph (dependencies `data -> data`, `data -> memop`, `memop -> data`).
+
+In the JVM code, we represent memory addresses in the loop as follows:
+```
+address = base + stride*iv + const [+ invar]
+```
+The `base` is associated with the base of an array reference. The `iv` references the induction variable `Phi`. `stride` is the distance in bytes between the loop iterations. `const` is a constant offset we have to the `base`. Optionally, there may be an `invar`, which is a value that is unknown, but invariant over all loop iterations. Given this, we can try to prove that memory accesses are non-overlapping, and we can potentially find the offset in bytes between two memory accesses, which helps us determine adjacent memory operations.
+
+A second task is to **ensure strict alignment** on machines that require it (when the `AlignVector` Hotspot JVM flag is enabled).
+Many CPU's require vector memory accesses to have a certain `X`-byte alignment in memory (eg. 4-byte or 8-byte).
+If a vector memory access is performed that is not `X`-byte aligned, this may lead to worse performance.
+Some CPU's will also throw a `SIGBUS` error.
+And others simply ignore the lower bits, which leads to an access at a different location than intended (and hence to wrong results).
+
+The JVM code picks one packset as the reference (`best`). All other packsets have to be at an offset that aligns with `best`.
+We can then adjust the iteration count of the Pre-loop such that `best` is `X`-byte aligned to the memory. Since all other packsets are `X`-byte aligned relative to `best`, they then also `X`-byte aligned to the memory.
+
+Note: currently the JVM code picks `X` to be the vector with of the largest packset. This is suboptimal and should be improved.
 
 **Algorithm Step 2: Identifying Adjacent Memory References (create pair PackSet)**
 

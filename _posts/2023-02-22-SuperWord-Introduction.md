@@ -5,7 +5,7 @@ date: 2023-02-23
 
 **Background: SIMD and Auto-Vectorization**
 
-Modern CPU's have a variety of SIMD (single input multiple data) vector instructions. They make use of vector registers, which can hold multiple values of a type. For example a an `avx512` registers (512 bit) can hold 64 bytes, or 16 ints/floats, or 8 long/doubles. They can thus load, store, add, multiply, etc multiple values with a single instruction, but usually at the same cost (instructions per cycle, and latency) as with scalar (single) values.
+Modern CPU's have a variety of SIMD (single input multiple data) vector instructions (eg. intel's `SSE` and `AVX`, ARM's `NEON` and `SVE`). They make use of vector registers, which can hold multiple values of a type. For example a an `avx512` registers (512 bit) can hold 64 bytes, or 16 ints/floats, or 8 long/doubles. They can thus load, store, add, multiply, etc multiple values with a single instruction, but usually at the same cost (instructions per cycle, and latency) as with scalar (single) values.
 
 It is thus beneficial to use SIMD instructions rather than their scalar equivalent. We can do this by hand.
 
@@ -44,7 +44,7 @@ While we can do this work by hand, we do not want to do that. For one it is a lo
 
 In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They **auto-vectorize basic blocks**, so that multiple scalar operations can be packed into a SIMD vector instruction. Their algorithm can thus be used on any program part that does not contain control flow (no branching / merging, no If, etc). The only requirement is that it has sufficient parallelism. For loops, this can often be acheived by **loop unrolling**. That way, one can fuse together multiple loop iterations into one basic block, and exploit the potential parallelism between different loop iterations.
 
-The algorithm has been **implemented in the Hotspot JVM**. However, there are a few things that have been altered for the implementation.
+The algorithm has been **implemented in the Hotspot JVM**. However, there are a few things that have been altered for the implementation. It only applies the algorithm to loop bodies, after a few iterations of loop untolling.
 
 **First Example**
 
@@ -121,7 +121,7 @@ StoreF -> StoreVector
 
 _DAG_: a `DAG` is a directed acyclic graph.
 
-_Given_: the `DAG` with ops of a loop-block. Only loops without control flow are considered.
+_Given_: the `DAG` with ops of a basic block (loop body, no control flow).
 
 _Goal_: patch the `DAG` such that the scalar ops are packed into SIMD instructions. The new `DAG` must preserve the behavior of the old `DAG`.
 

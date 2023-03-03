@@ -3,11 +3,48 @@ title: "SuperWord (Auto-Vectorization) - An Introduction"
 date: 2023-02-23
 ---
 
-In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They auto-vectorize loops, so that multiple scalar operations can be packed into a SIMD vector instruction.
+**Background: SIMD and Auto-Vectorization**
 
-The algorithm has been implemented in the Hotspot JVM. However, there are a few things that have been altered for the implementation.
+Modern CPU's have a variety of SIMD (single input multiple data) vector instructions. They make use of vector registers, which can hold multiple values of a type. For example a an `avx512` registers (512 bit) can hold 64 bytes, or 16 ints/floats, or 8 long/doubles. They can thus load, store, add, multiply, etc multiple values with a single instruction, but usually at the same cost (instructions per cycle, and latency) as with scalar (single) values.
 
-TODO: more intro
+It is thus beneficial to use SIMD instructions rather than their scalar equivalent. We can do this by hand.
+
+```
+    static void test(float[] data) {
+        for (int j = 0; j < N; j++) {
+            data[j] = 2 * data[j]; // ------------ scalar
+        }
+    }
+    static void test_unrolled(float[] data) {
+        // Pre loop
+        for (int j = 0; j < N; j+=4) { // increment by 4 elements at a time
+            data[j + 0] = 2 * data[j + 0];
+            data[j + 1] = 2 * data[j + 1];
+            data[j + 2] = 2 * data[j + 2];
+            data[j + 3] = 2 * data[j + 3];
+        }
+        // Post loop
+    }
+    static void test_vectorized(float[] data) {
+        // Pre loop
+        for (int j = 0; j < N; j+=4) { // increment by 4 elements at a time
+            vector_4floats v1 = load_4floats(data, i);
+            vector_4floats v2 = multiply_4floats(const_4floats(2), v1); // 4 parallel multiplications
+            store_4floats(data, i, v2);
+        }
+        // Post loop
+    }
+```
+
+I am not going into the details of Pre-Main-Post loops (Pre-loop ensures we the Main-loop is memory-aligned, the Post-loop executes the few iterations left over after the Main-loop).
+
+While we can do this work by hand, we do not want to do that. For one it is a lot of programming effort. Second, the vector length depends on the concrete CPU features, so one would have to have different vectorized code for each CPU. Hence, we want to have an algorithm in the compiler that does that work for us. It is supposed to detect where SIMD parallelization is possible, and decide if it is beneficial for performance. The primary concern is usually loops, where often most of the time is spent. But in principle one could speed up any part of a program that has enough parallelism.
+
+**The SuperWord Paper**
+
+In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They **auto-vectorize basic blocks**, so that multiple scalar operations can be packed into a SIMD vector instruction. Their algorithm can thus be used on any program part that does not contain control flow (no branching / merging, no If, etc). The only requirement is that it has sufficient parallelism. For loops, this can often be acheived by **loop unrolling**. That way, one can fuse together multiple loop iterations into one basic block, and exploit the potential parallelism between different loop iterations.
+
+The algorithm has been **implemented in the Hotspot JVM**. However, there are a few things that have been altered for the implementation.
 
 **First Example**
 

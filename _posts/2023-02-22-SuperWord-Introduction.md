@@ -257,7 +257,8 @@ Every node is now in maximally one `pack`. Any `pack` with a size other than a p
 We split the `pack` into multiple if it is larger than the hardware would allow.
 
 Detail: so far we have only shown that the `pairs` were `independent`. How do we know that the `packs` are now `independent`?
-`pair independence` still leaves room for dependence at distance `>=2`.
+`pair independence` still leaves room for dependence at distance `>=2`. For example `data[i+2] = 2 * data[i]` has a cyclic dependency at distance 2.
+
 The paper states that `independence` is ensured during alignment analysis.
 It assumes that no `pair` is added that crosses an "alignment boundary".
 More details are not provided.
@@ -279,13 +280,18 @@ Hence, we can create `pairs` that cross the "alignment boundary".
 In that case, we cannot know if the `packs` are independent after the `combination`.
 We need an additional `independence` filtering on the `pack` level.
 
-**Algorithm Step 6: Filter Packset (implementable and profitable)**
+**Algorithm Step 5: Filter Packset (implemented and profitable)**
 
-TODO: write
+This is an additional step that is not described in the paper, but implemented in the JVM.
+We check that all `packs` are:
 
-**Algorithm Step 7: Schedule (patch the graph)**
+ - `implemented`: can we generate the required SIMD instruction? This is hardware dependent. The checks also query `Matcher::match_rule_supported_superword`. Consult `Matcher::match_rule_supported_vector` in `x86.ad` to see what vector instructions are implemented for which `SSE` and `AVX` CPU features.
+ - `profitable`: since the cost model was already applied during **extension**, we now only check if the `packs` can be connected to all inuts and outputs. There are a few open tasks stated in the comments.
 
-TODO: write
+**Algorithm Step 6: Schedule (patch the graph)**
+
+We replace the nodes in the `packs` with vector operations, and connect them accordingly.
+I have not investigated this much, so I cannot provide more details.
 
 **Implementation Overview**
 
@@ -331,6 +337,7 @@ bool SuperWord::SLP_extract() {
   
   // hack the graph: replace the scalar ops with vector ops
   schedule();
+  output();
 }
 ```
 

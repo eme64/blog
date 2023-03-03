@@ -150,21 +150,30 @@ At this point, a few **definitions** and a more precise **problem statement** ar
 
 `adjacent memory operations`: two memory operations that have a provable offset of exactly `sizeof(type)`. Two loads or two stores that are adjacent can thus potentially be packed into a single vector load or store.
 
-At this point, we pack pairs of memory operations that are `adjacent`, `isomorphic` and `independent`.
+`pack`: an `n-tuple` `[s1, ..., sn]`, where `s1, ..., sn` are `independent` and `isomorphic`.
+
+`pair`: is a `pack` of size two.
+
+`PackSet`: a set of `packs`.
+
+At this point, we **pack pairs** of memory operations that are `adjacent`, `isomorphic` and `independent`. This is the initial `PackSet`.
 
 <img src="https://user-images.githubusercontent.com/32593061/222705875-909b0142-1a02-476a-b7db-e69bf393243d.png" width="50%">
 
 <img src="https://user-images.githubusercontent.com/32593061/222705710-d10aeb76-c658-48c9-ae20-21f700c0911e.png" width="50%">
 
-Now we `extend` from the memory operations to the non-memory operations. We do this by starting at a pair that we already have, and checking if the pair has an input pair, or an output pair that matches (ie. is `isomorphic` and `independent`).
+Now we **extend** the `PackSet` from the memory operations to the non-memory operations. We do this by starting at a pair that we already have, and checking if the pair has an input pair, or an output pair that matches (ie. is `isomorphic` and `independent`).
 
 <img src="https://user-images.githubusercontent.com/32593061/222706004-88f45c02-8482-4081-a3ac-0463e1412a50.png" width="50%">
 
-Once we have found all pairs, we can `combine` them into vectors, by stitching the pairs together: `[A, B] + [B, C] -> [A, B, C]`.
+Once we have found all pairs, we can **combine** the `pairs` into larger `packs`, by stitching them together: `[A, .., B] + [B, .., C] -> [A,.. B, .. C]`.
 
 <img src="https://user-images.githubusercontent.com/32593061/222706026-1fd242b2-b314-4f3e-a4e5-73796223469d.png" width="50%">
 
-At this point, we need to do some sanity checks, and determine if vectorizing is indeed profitable.
+At this point, we need to do some **sanity checks**, and determine if vectorizing is indeed **profitable**.
+Some `packs` or the `PackSet` will be **filtered** out.
+Finally, we can **schedule** the `PackSet`,
+and replace the C2 IR nodes that are in the `PackSet` with vector nodes.
 
 Let's look at two other examples. In the first, we store "backward" (`i-1`), in the second we store "forward" (`i+1`). In the first, the loop iterations are `independent`, while in the second, we see that the `StoreF` from the previous iteration stores to the position that the next iteration's `LoadF` loads from. Such a depedency must be respected. Now, we see that the loads are `not independent`.
 
@@ -211,15 +220,64 @@ Note: currently the JVM code picks `X` to be the vector with of the largest pack
 
 **Algorithm Step 2: Identifying Adjacent Memory References (create pair PackSet)**
 
-TODO: write
+How should we pack the individual nodes into `packs`?
+The `adjacent` memory accesses are an obvious starting point, as we would like them to be in the same vector operation, in the correct order.
+We take an inductive approach, and seed the `PackSet` with `pairs of adjacent independent isomorphic` memory operations.
+
+Assumption: "In practive, nearly every memory reference is directly adjacent to at most two other references." One left, one right of it.
+
+Futher: duplicates should be removed by redundant load/store elimination (I guess that would be `LoadNode::Identity` and `StoreNode::Identity`).
+
+Note: in the Hotspot JVM implementation, the `alignment analysis` is performed only at this stage, it is mixed into the same loop.
 
 **Algorithm Step 3: Extend PackSet (to non memory nodes)**
 
-TODO: write
+Starting at the memory `pairs`,  we **extend** the `PackSet` iteratively with non-memory `pairs`, until no new ones can be added.
+
+ - `follow_use_defs`: find `inputs`.
+ - `follow_def_uses`: find `outputs`.
+
+The new `pairs` must be: `isomorphic` and `independent` (packable into SIMD vector instruction).
+
+Side note:
+There is also a cost model that decides if packing it is profitable, and tries to extend in the most profitable way.
+It is also supposed to weight the gains made by executing operations in parallel, versus the potential costs of packing/unpacking if the inputs/outputs are not vectorizable.
+I have not investigated this much.
+I also fear that it is not very effective, because in the `filtering` stage we remove `packs` where the inputs would have to be packed, or the outputs unpacked.
 
 **Algorithm Step 4: Combine PackSet (stitch the pairs together)**
 
-TODO: write
+We now have all the `pairs`, that follow the `use-def` chains.
+We now iteratively stitch the `packs` together.
+```
+[s1, .., sj] + [sj, .., sn] -> [s1, .., sj, .., sn]
+```
+Every node is now in maximally one `pack`. Any `pack` with a size other than a power of 2 is removed.
+
+We split the `pack` into multiple if it is larger than the hardware would allow.
+
+Detail: so far we have only shown that the `pairs` were `independent`. How do we know that the `packs` are now `independent`?
+`pair independence` still leaves room for dependence at distance `>=2`.
+The paper states that `independence` is ensured during alignment analysis.
+It assumes that no `pair` is added that crosses an "alignment boundary".
+More details are not provided.
+
+In the JVM code, we currently do this as follows:
+If `AlignVector` is enabled, then we aready know that all vectors are aligned to the largest vector width.
+For the rest, we assume no alignment requirement by the hardware.
+`SuperWord::find_align_to_ref` finds the largest group of stores (or loads) with references "similar" to it.
+It then picks the reference with the smallest offset (the groups `mem_ref`).
+We do this by analyzing the address represented as `address = base + stride*iv + const [+ invar]`.
+We do this iteratively for all such groups.
+If two groups are in the same memory slice, we check if the two `mem_refs` are vector width aligned (same offset modulo vector width).
+This ensures that no `pair` inside a memory slice will cross this "alignment boundary".
+
+However, if we use `-XX:CompileCommand=option,package.Class::method,Vectorize`, the flag `_do_vector_loop` is turned on.
+The `IntStream forEach()` method has this enabled implicitly (`vmIntrinsics::_forEachRemaining`).
+The `mem_ref` alignment check is disabled.
+Hence, we can create `pairs` that cross the "alignment boundary".
+In that case, we cannot know if the `packs` are independent after the `combination`.
+We need an additional `independence` filtering on the `pack` level.
 
 **Algorithm Step 6: Filter Packset (implementable and profitable)**
 

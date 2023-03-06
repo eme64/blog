@@ -28,9 +28,10 @@ It is thus beneficial to use SIMD instructions rather than their scalar equivale
     static void test_vectorized(float[] data) {
         // Pre loop
         for (int j = 0; j < N; j+=4) { // increment by 4 elements at a time
-            vector_4floats v1 = load_4floats(data, i);
-            vector_4floats v2 = multiply_4floats(const_4floats(2), v1); // 4 parallel multiplications
-            store_4floats(data, i, v2);
+            vector_4floats v1 = data[j : j + 4]; // vector load
+            vector_4floats v2 = vector_4floats(2, 2, 2, 2); // vector constant
+            vector_4floats v3 = v1 * v2 // element-wise: 4 parallel multiplications
+            data[j : j + 4] = v3; // vector store
         }
         // Post loop
     }
@@ -38,7 +39,7 @@ It is thus beneficial to use SIMD instructions rather than their scalar equivale
 
 I am not going into the details of Pre-Main-Post loops (Pre-loop ensures we the Main-loop is memory-aligned, the Post-loop executes the few iterations left over after the Main-loop).
 
-While we can do this work by hand, we do not want to do that. For one it is a lot of programming effort. Second, the vector length depends on the concrete CPU features, so one would have to have different vectorized code for each CPU. Hence, we want to have an algorithm in the compiler that does that work for us. It is supposed to detect where SIMD parallelization is possible, and decide if it is beneficial for performance. The primary concern is usually loops, where often most of the time is spent. But in principle one could speed up any part of a program that has enough parallelism.
+While we can do this work by hand, we do not want to do that. For one, it is a lot of programming effort. Second, the vector length depends on the concrete CPU features, so one would have to have different vectorized code for each CPU. Hence, we want to have an algorithm in the compiler that does that work for us. It is supposed to detect where SIMD parallelization is possible, and decide if it is beneficial for performance. The primary concern is usually loops, where often most of the time is spent. But in principle one could speed up any part of a program that has enough parallelism.
 
 **The SuperWord Paper**
 
@@ -63,7 +64,7 @@ public class Test {
 
     static void test(float[] data) {
         for (int j = 0; j < N; j++) {
-            data[j] = 2 * data[j]; // ------- this is vectorized
+            data[j] = 2 * data[j]; // <-- this is vectorized
         }
     }
 

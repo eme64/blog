@@ -359,6 +359,26 @@ bool SuperWord::SLP_extract() {
  - Investigate when / if / how FMA is working - only with `Math.fma`?
  - More `independence` through more fine-grained `memory slices`? Speculative: two arrays of same type are separate objects?
 
+**Appendix: List of integrated SuperWord RFE's**
+
+I will add more as I find more of them. Well you can of course dig for them yourself in the [history](https://github.com/openjdk/jdk/commits/master/src/hotspot/share/opto/superword.cpp) 
+
+ - JDK 8289422: Fix and re-enable vector conditional move
+ - JDK 8283091: Support type conversion between different data sizes in SLP
+ - JDK 8231441: AArch64: Initial SVE backend support
+ - JDK-8245158: C2: Enable SLP for some manually unrolled loops (Missing tests!)
+ - JDK-8192846: Support cmov vectorization for float 
+ - JDK-8153998: Masked vector post loops
+ - JDK-8151573: Multiversioning for range check elimination
+ - JDK-8149421:	Vectorized Post Loops
+ - JDK-8139340: SuperWord enhancement to support vector conditional move (CMovVD ) on Intel AVX cpu
+ - JDK-8135028: support for vectorizing double precision sqrt
+ - JDK-8129920: Vectorized loop unrolling (unroll again after SuperWord)
+ - JDK-8080325: SuperWord loop unrolling analysis
+ - JDK-8078563: Restrict reduction optimization (when it is profitable)
+ - JDK-8076284: Improve vectorization of parallel streams (`forEachRemaining`)
+ - JDK-8074981: Integer/FP scalar reduction optimization
+
 **Appendix: Other Work**
 
  - All you need is superword-level parallelism: systematic control-flow vectorization with SLP (2022)

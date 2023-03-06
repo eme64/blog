@@ -359,7 +359,30 @@ bool SuperWord::SLP_extract() {
 **Appendix: Other Work**
 
  - All you need is superword-level parallelism: systematic control-flow vectorization with SLP (2022)
-   - [paper](https://dl.acm.org/doi/abs/10.1145/3519939.3523701), [youtube](https://www.youtube.com/watch?v=9Hk3d7vHEGw). Handle control flow using masked vector instructions. Loop fusion: every element represents a loop. TODO investigate more.
+   - [paper](https://dl.acm.org/doi/abs/10.1145/3519939.3523701), [youtube](https://www.youtube.com/watch?v=9Hk3d7vHEGw). Handle control flow using masked vector instructions. Loop fusion / co-iteration: every element represents a loop. Basically: flatten control flow to single block, by using CMove/select/blend when control flow merges, and masked load/stores.
+```
+int x;
+If (condition) { x = v1; } else { x = v2; }
+
+// translates to
+
+c = condition; (true)
+v1 = …;  (c)
+v2 = …;  (!c)
+x = Phi(c, v1, v2); (true)
+
+// translates to
+
+x = CMove(condition, v1, v2);
+
+// vectorized
+
+c_vec = condition[i : i + 4]; // vector of conditions
+v1_vec = v1[i : i + 4]; // compute both values for true / false branch
+v2_vec = v2[i : i + 4];
+x_vec = blend(c_vec, v1_vec, v2_vec); // select from true / false branch
+```
+
  - goSLP - Globally Optimized Superword Level Parallelism Framework (2018)
    - [paper](https://dl.acm.org/doi/10.1145/3276480), [youtube](https://www.youtube.com/watch?v=5XoK9BeTP9Q). Statement packing using integer linear programming. Not JIT compatible.
  - TODO add more. [this](https://www.youtube.com/watch?v=gIEn34LvyNo)

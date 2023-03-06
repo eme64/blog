@@ -386,4 +386,5 @@ x_vec = blend(c_vec, v1_vec, v2_vec); // select from true / false branch
 
  - goSLP - Globally Optimized Superword Level Parallelism Framework (2018)
    - [paper](https://dl.acm.org/doi/10.1145/3276480), [youtube](https://www.youtube.com/watch?v=5XoK9BeTP9Q). Statement packing using integer linear programming. Not JIT compatible.
- - TODO add more. [this](https://www.youtube.com/watch?v=gIEn34LvyNo)
+ - Look-ahead SLP: auto-vectorization in the presence of commutative operations (2018)
+   - [paper](https://dl.acm.org/doi/abs/10.1145/3168807), [youtube](https://www.youtube.com/watch?v=gIEn34LvyNo). Lookahead to reorder commutative operations, to improve `isomorphism` and vectorize more.

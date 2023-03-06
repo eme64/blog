@@ -355,6 +355,9 @@ bool SuperWord::SLP_extract() {
  - [JDK-8255622](https://bugs.openjdk.org/browse/JDK-8255622): Combine all vectorization tests in one directory (Vladimir K?)
  - Investigation: where do we not even start SuperWord where it could work? Where do we fail to vectorize during SuperWord? Can we find and fix these cases?
  - Should we CMove more, to absorb control flow?
+ - Strided access? Gather / Scatter
+ - Investigate when / if / how FMA is working - only with `Math.fma`?
+ - More `independence` through more fine-grained `memory slices`? Speculative: two arrays of same type are separate objects?
 
 **Appendix: Other Work**
 

@@ -360,6 +360,7 @@ bool SuperWord::SLP_extract() {
 
  - All you need is superword-level parallelism: systematic control-flow vectorization with SLP (2022)
    - [paper](https://dl.acm.org/doi/abs/10.1145/3519939.3523701), [youtube](https://www.youtube.com/watch?v=9Hk3d7vHEGw). Handle control flow using masked vector instructions. Loop fusion / co-iteration: every element represents a loop. Basically: flatten control flow to single block, by using CMove/select/blend when control flow merges, and masked load/stores.
+
 ```
 int x;
 If (condition) { x = v1; } else { x = v2; }

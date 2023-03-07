@@ -353,6 +353,7 @@ bool SuperWord::SLP_extract() {
    - [JDK-8300865](https://bugs.openjdk.org/browse/JDK-8300865): C2: product reduction in ProdRed_Double is not vectorized (Jatin)
  - [JDK-8287087](https://bugs.openjdk.org/browse/JDK-8287087): C2: perform SLP reduction analysis on-demand (Roberto)
  - [JDK-8255622](https://bugs.openjdk.org/browse/JDK-8255622): Combine all vectorization tests in one directory (Vladimir K?)
+ - JDK-8260943: Revisit vectorization optimization added by 8076284 (Vladimir K? some buggy code is just hard-disabled)
  - Investigation: where do we not even start SuperWord where it could work? Where do we fail to vectorize during SuperWord? Can we find and fix these cases?
  - Should we CMove more, to absorb control flow?
  - Strided access? Gather / Scatter

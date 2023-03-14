@@ -149,13 +149,15 @@ At this point, a few **definitions** and a more precise **problem statement** ar
 
 `independent`: two ops are `independent` if there is no path from one to the other. We can only pack independent ops into a SIMD vector, since they are executed concurrently, so one cannot use the other's output in any way.
 
-`adjacent memory operations`: two memory operations that have a provable offset of exactly `sizeof(type)`. Two loads or two stores that are adjacent can thus potentially be packed into a single vector load or store.
+`adjacent memory operations`: two memory operations that have a provable offset of exactly `sizeof(type)`. Two loads or two stores that are adjacent can thus potentially be packed into a single vector load or store (we can avoid using gather and scatter operations that make everything much more complicated).
 
 `pack`: an `n-tuple` `[s1, ..., sn]`, where `s1, ..., sn` are `independent` and `isomorphic`.
 
 `pair`: is a `pack` of size two.
 
 `PackSet`: a set of `packs`.
+
+Note: `isomorphism` and `independence` are necessary conditions for SLP vectorization. They are useful to make "local" decisions about individual nodes in their graph-neighbourhood. However, they are not sufficient to ensure that there are no cycles. We will discuss this in more details later.
 
 At this point, we **pack pairs** of memory operations that are `adjacent`, `isomorphic` and `independent`. This is the initial `PackSet`.
 

@@ -192,6 +192,15 @@ The implementation in the Hotspot JVM currently only applies the SuperWord algor
 
 To ensure that the full size of the SIMD vectors can be filled, one needs to unroll loops with at least a multiple of `vector_width / sizeof(type)`. In the JVM code, this is further refined for each `type`. One will have to unroll less for an 8-byte `long`, than for a 2-byte `short`. Unrolling less means the algorithm has to process fewer noodes, and process them faster.
 
+Still: the SLP algorithm also allows hand-unrolled loops (see example below).
+
+```
+for (int i = 0; i < RANGE; i+=2) {    // stride 2
+    dataF[i+0] = dataI[i+0] + 0.33f;  // i+0
+    dataF[i+1] = dataI[i+1] + 0.33f;  // i+1
+}
+```
+
 **Algorithm Step 1: Alignment Analysis**
 
 Sadly, the paper handles this fairly quickly and without detail. It refers to another publication of the same authors, which I could not find. I had to look at the JVM implementation to understand it better. However, currently there are still bugs that are being fixed, where the alignment analysis is wrong, and other cases where it is too restrictive.
@@ -246,6 +255,9 @@ It is also supposed to weight the gains made by executing operations in parallel
 I have not investigated this much.
 I also fear that it is not very effective, because in the `filtering` stage we remove `packs` where the inputs would have to be packed, or the outputs unpacked.
 
+Side note 2:
+We should only extend to non-memory nodes. If we also extend to memory nodes, then we may re-introduce loads/stores that we rejected, for example because of mis-alignment.
+
 **Algorithm Step 4: Combine PackSet (stitch the pairs together)**
 
 We now have all the `pairs`, that follow the `use-def` chains.
@@ -273,6 +285,9 @@ We do this by analyzing the address represented as `address = base + stride*iv +
 We do this iteratively for all such groups.
 If two groups are in the same memory slice, we check if the two `mem_refs` are vector width aligned (same offset modulo vector width).
 This ensures that no `pair` inside a memory slice will cross this "alignment boundary".
+This on its own would not really guarantee independence.
+However, in the JVM we do not implement packing/unpacking of vector-nodes, and also no vector-permutations.
+This means that every "vector-lane" stays independent.
 
 However, if we use `-XX:CompileCommand=option,package.Class::method,Vectorize`, the flag `_do_vector_loop` is turned on.
 The `IntStream forEach()` method has this enabled implicitly (`vmIntrinsics::_forEachRemaining`).
@@ -281,13 +296,57 @@ Hence, we can create `pairs` that cross the "alignment boundary".
 In that case, we cannot know if the `packs` are independent after the `combination`.
 We need an additional `independence` filtering on the `pack` level.
 
-**Algorithm Step 5: Filter Packset (implemented and profitable)**
+**Algorithm Step 5: Filter Packset (implemented, profitable, cyclic dependencies)**
 
 This is an additional step that is not described in the paper, but implemented in the JVM.
 We check that all `packs` are:
 
  - `implemented`: can we generate the required SIMD instruction? This is hardware dependent. The checks also query `Matcher::match_rule_supported_superword`. Consult `Matcher::match_rule_supported_vector` in `x86.ad` to see what vector instructions are implemented for which `SSE` and `AVX` CPU features.
  - `profitable`: since the cost model was already applied during **extension**, we now only check if the `packs` can be connected to all inuts and outputs. There are a few open tasks stated in the comments.
+ - `cyclic dependencies`: `independence` on the `pack` level does **not** guarantee that there are no cyclic dependencies between the `packs`.
+
+I quote from the [paper](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf):
+
+```
+3.7 Scheduling
+Dependence analysis before packing ensures that statements within a group can be executed
+safely in parallel. However, it may be the case that executing two groups produces a dependence
+violation. An example of this is shown in Figure 6. Here, dependence edges are drawn between
+groups if a statement in one group is dependent on a statement in the other. As long as there
+are no cycles in this dependence graph, all groups can be scheduled such that no violations
+occur. However, a cycle indicates that the set of chosen groups is invalid and at least one group
+will need to be eliminated. Although experimental data has shown this case to be extremely rare,
+care must be taken to ensure correctness.
+```
+
+The idea is this: before `schedule`, we must ensure that `packs` are `independent`.
+**But**: `independence` on the `pack` level is not sufficient, we also need to ensure that the `packs` (groups) are `acyclic` before we `schedule`.
+
+In the paper, they bring this example:
+
+<img src="https://user-images.githubusercontent.com/32593061/224940778-b21283e7-dd27-4950-bf9d-e59fafab130c.png" width="50%">
+
+This example does currently not get vectorized because it has "vector-lane" permutations, and the packs do not match up.
+
+However, during this investigation, I found the following example. It currently gets vectorized incorrectly, and I filed a [bug](https://bugs.openjdk.org/browse/JDK-8304042) for it:
+
+```
+    static void test(int[] dataI1, int[] dataI2, float[] dataF1, float[] dataF2) {
+        for (int i = 0; i < RANGE/2; i+=2) {
+            dataF1[i+0] = dataI1[i+0] + 0.33f;            // 1
+            dataI2[i+1] = (int)(11.0f * dataF2[i+1]);     // 2
+
+            dataI2[i+0] = (int)(11.0f * dataF2[i+0]);     // 3
+            dataF1[i+1] = dataI1[i+1] + 0.33f;            // 4
+        }
+    }
+```
+
+Note: `dataI1 == dataI2` and `dataF1 == dataF2`. I only had to use two references so that C2 does not know this, and does not optimize away load after store.
+
+Lines 1 and 4 are `isomorphic` and `independent`. The same holds for line 2 and 3. We creates the packs `[1,4]` and `[2,3]`, and vectorize. However, we have the following dependencies: `1->3` and `2->4`. This creates a `cyclic dependency` between the two `packs`.
+
+Conclusion: `independence` on the `pack` level is a necessary condition, but not sufficient. We must explicitly check that the `pack`-graph does not introduce any cycles, so that we can guarantee that the output `DAG` is indeed acyclic, with the same semantics (same effect/results).
 
 **Algorithm Step 6: Schedule (patch the graph)**
 
@@ -332,8 +391,9 @@ bool SuperWord::SLP_extract() {
   // split them into multiple if larger than max vector size
   combine_packs();
   
-  // implemented? -> depends on hardware
-  // profitable?  -> are all use and def in loop vectorizable?
+  // implemented?         -> depends on hardware
+  // profitable?          -> are all use and def in loop vectorizable?
+  // cyclic dependencies? -> do the packs introduce cyclic dependencies?
   filter_packs();
   
   // hack the graph: replace the scalar ops with vector ops
@@ -343,6 +403,13 @@ bool SuperWord::SLP_extract() {
 ```
 
 **Appendix: Open Tasks and Questions**
+
+These are the bugs that I am working on at the time of writing this blog:
+
+ - [JDK-8298935](https://bugs.openjdk.org/browse/JDK-8298935): fix independence bug in create_pack logic in SuperWord::find_adjacent_refs
+ - [JDK-8304042](https://bugs.openjdk.org/browse/JDK-8304042): C2 SuperWord: schedule must remove packs with cyclic dependencies
+
+These are more tasks we could/should consider:
 
  - Code has lots of open tasks (eg. implement PackNode and ExtractNode)
  - I added a few recently:

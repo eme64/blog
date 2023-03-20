@@ -398,6 +398,9 @@ bool SuperWord::SLP_extract() {
   // cyclic dependencies? -> do the packs introduce cyclic dependencies?
   filter_packs();
   
+  // check if graph with packs has cycles. if yes -> remove all packs
+  remove_cycles();
+  
   // hack the graph: replace the scalar ops with vector ops
   schedule();
   output();

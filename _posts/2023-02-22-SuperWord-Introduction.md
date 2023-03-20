@@ -5,7 +5,7 @@ date: 2023-02-23
 
 **Background: SIMD and Auto-Vectorization**
 
-Modern CPU's have a variety of SIMD (single input multiple data) vector instructions (eg. intel's `SSE` and `AVX`, ARM's `NEON` and `SVE`). They make use of vector registers, which can hold multiple values of a type. For example a an `avx512` registers (512 bit) can hold 64 bytes, or 16 ints/floats, or 8 long/doubles. They can thus load, store, add, multiply, etc multiple values with a single instruction, but usually at the same cost (instructions per cycle, and latency) as with scalar (single) values.
+Modern CPU's have a variety of SIMD (single input multiple data) vector instructions (eg. intel's `SSE` and `AVX`, ARM's `NEON` and `SVE`). They make use of vector registers, which can hold multiple values of a type. For example a `avx512` registers (512 bit) can hold 64 bytes, or 16 ints/floats, or 8 long/doubles. They can thus load, store, add, multiply, etc multiple values with a single instruction, but usually at the same cost (instructions per cycle, and latency) as with scalar (single) values.
 
 It is thus beneficial to use SIMD instructions rather than their scalar equivalent. We can do this by hand.
 
@@ -37,15 +37,15 @@ It is thus beneficial to use SIMD instructions rather than their scalar equivale
     }
 ```
 
-I am not going into the details of Pre-Main-Post loops (Pre-loop ensures we the Main-loop is memory-aligned, the Post-loop executes the few iterations left over after the Main-loop).
+I am not going into the details of Pre-Main-Post loops (Pre-loop ensures that the Main-loop is memory-aligned, the Post-loop executes the few iterations left over after the Main-loop).
 
 While we can do this work by hand, we do not want to do that. For one, it is a lot of programming effort. Second, the vector length depends on the concrete CPU features, so one would have to have different vectorized code for each CPU. Hence, we want to have an algorithm in the compiler that does that work for us. It is supposed to detect where SIMD parallelization is possible, and decide if it is beneficial for performance. The primary concern is usually loops, where often most of the time is spent. But in principle one could speed up any part of a program that has enough parallelism.
 
 **The SuperWord Paper**
 
-In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They **auto-vectorize basic blocks**, so that multiple scalar operations can be packed into a SIMD vector instruction. Their algorithm can thus be used on any program part that does not contain control flow (no branching / merging, no If, etc). The only requirement is that it has sufficient parallelism. For loops, this can often be acheived by **loop unrolling**. That way, one can fuse together multiple loop iterations into one basic block, and exploit the potential parallelism between different loop iterations.
+In 2000, Samuel Larsen and Saman Amarasinghe presented [Exploiting Superword Level Parallelism with Multimedia Instruction Sets](https://groups.csail.mit.edu/cag/slp/SLP-PLDI-2000.pdf). They **auto-vectorize basic blocks**, so that multiple scalar operations can be packed into a SIMD vector instruction. Their algorithm can thus be used on any program part that does not contain control flow (no branching / merging, no If, etc). The only requirement is that it has sufficient parallelism. For loops, this can often be achieved by **loop unrolling**. That way, one can fuse together multiple loop iterations into one basic block, and exploit the potential parallelism between different loop iterations.
 
-The algorithm has been **implemented in the Hotspot JVM**. However, there are a few things that have been altered for the implementation. It only applies the algorithm to loop bodies, after a few iterations of loop untolling.
+The algorithm has been **implemented in the HotSpot JVM**. However, there are a few things that have been altered for the implementation. It only applies the algorithm to loop bodies, after a few iterations of loop unrolling.
 
 **First Example**
 
@@ -120,7 +120,7 @@ StoreF -> StoreVector
 
 **Basic Ideas for the Algorithm**
 
-We will look at the basic ideas of the algirithm on the same example loop, which we unroll twice (`4x` unrolled).
+We will look at the basic ideas of the algorithm on the same example loop, which we unroll twice (`4x` unrolled).
 ```
 for (int j = 0; j < N; j++) { data[i] = 2 * data[i]; }
 ```
@@ -145,7 +145,7 @@ At this point, a few **definitions** and a more precise **problem statement** ar
 
 `Goal`: patch the `DAG` such that the scalar ops are packed into SIMD instructions. The new `DAG` must preserve the behavior of the old `DAG`.
 
-`isomorphic`: to pack scalar ops into a single SIMD instruction, they must be similar (to simplicy: same `Opcode` and `velt_type`).
+`isomorphic`: to pack scalar ops into a single SIMD instruction, they must be similar (to simplify: same `Opcode` and `velt_type`).
 
 `independent`: two ops are `independent` if there is no path from one to the other. We can only pack independent ops into a SIMD vector, since they are executed concurrently, so one cannot use the other's output in any way.
 
@@ -190,7 +190,7 @@ We will now look at each step of the algorithm in more detail.
 
 As already explained earlier, the algorithm works on basic blocks. This can be the body of a loop (without any control flow). But it can be any basic block, even outside of loops.
 
-The implementation in the Hotspot JVM currently only applies the SuperWord algorithm for loops. Since it is a JIT (just in time) compiler, one has to focus the time spent on optimizations to the places where it is most promising. That is most often loops.
+The implementation in the HotSpot JVM currently only applies the SuperWord algorithm for loops. Since it is a JIT (just in time) compiler, one has to focus the time spent on optimizations to the places where it is most promising. That is most often loops.
 
 To ensure that the full size of the SIMD vectors can be filled, one needs to unroll loops with at least a multiple of `vector_width / sizeof(type)`. In the JVM code, this is further refined for each `type`. One will have to unroll less for an 8-byte `long`, than for a 2-byte `short`. Unrolling less means the algorithm has to process fewer noodes, and process them faster.
 
@@ -207,7 +207,7 @@ for (int i = 0; i < RANGE; i+=2) {    // stride 2
 
 Sadly, the paper handles this fairly quickly and without detail. It refers to another publication of the same authors, which I could not find. I had to look at the JVM implementation to understand it better. However, currently there are still bugs that are being fixed, where the alignment analysis is wrong, and other cases where it is too restrictive.
 
-First, we need to extract the **dependency graph** from the C2 see of nodes. Here we make use of the `memory slices` that were discovered by `Escape Analysis` (an algorith that determines which memory accesses are related, and which are provably unrelated).
+First, we need to extract the **dependency graph** from the C2 sea of nodes. Here we make use of the `memory slices` that were discovered by `Escape Analysis` (an algorithm that determines which memory accesses are related, and which are provably unrelated).
 We can ignore all inter-slice memory dependencies.
 Inside a memory slice, we need to ensure that `RAW` (read-after-write), `WAR` (write-after-read) and `WAW` (write-after-write) dependencies from the C2 graph are respected. But we can ignore `RAR` (read-after-read), since that is not a true dependency (swapping them has no effect).
 However, we can ignore `RAW`, `WAR` and `WAW` dependencies if they are provably accessing non-overlapping memory regions.
@@ -219,7 +219,7 @@ address = base + stride*iv + const [+ invar]
 ```
 The `base` is associated with the base of an array reference. The `iv` references the induction variable `Phi`. `stride` is the distance in bytes between the loop iterations. `const` is a constant offset we have to the `base`. Optionally, there may be an `invar`, which is a value that is unknown, but invariant over all loop iterations. Given this, we can try to prove that memory accesses are non-overlapping, and we can potentially find the offset in bytes between two memory accesses, which helps us determine adjacent memory operations.
 
-A second task is to **ensure strict alignment** on machines that require it (when the `AlignVector` Hotspot JVM flag is enabled).
+A second task is to **ensure strict alignment** on machines that require it (when the `AlignVector` HotSpot JVM flag is enabled).
 Many CPU's require vector memory accesses to have a certain `X`-byte alignment in memory (eg. 4-byte or 8-byte).
 If a vector memory access is performed that is not `X`-byte aligned, this may lead to worse performance.
 Some CPU's will also throw a `SIGBUS` error.
@@ -228,7 +228,7 @@ And others simply ignore the lower bits, which leads to an access at a different
 The JVM code picks one packset as the reference (`best`). All other packsets have to be at an offset that aligns with `best`.
 We can then adjust the iteration count of the Pre-loop such that `best` is `X`-byte aligned to the memory. Since all other packsets are `X`-byte aligned relative to `best`, they then also `X`-byte aligned to the memory.
 
-Note: currently the JVM code picks `X` to be the vector with of the largest packset. This is suboptimal and should be improved.
+Note: currently the JVM code picks `X` to be the `vector_width` of the largest packset. This is suboptimal and should be improved.
 
 **Algorithm Step 2: Identifying Adjacent Memory References (create pair PackSet)**
 
@@ -236,11 +236,11 @@ How should we pack the individual nodes into `packs`?
 The `adjacent` memory accesses are an obvious starting point, as we would like them to be in the same vector operation, in the correct order.
 We take an inductive approach, and seed the `PackSet` with `pairs of adjacent independent isomorphic` memory operations.
 
-Assumption: "In practive, nearly every memory reference is directly adjacent to at most two other references." One left, one right of it.
+Assumption: "In practice, nearly every memory reference is directly adjacent to at most two other references." One left, one right of it.
 
-Futher: duplicates should be removed by redundant load/store elimination (I guess that would be `LoadNode::Identity` and `StoreNode::Identity`).
+Further: duplicates should be removed by redundant load/store elimination (I guess that would be `LoadNode::Identity` and `StoreNode::Identity`).
 
-Note: in the Hotspot JVM implementation, the `alignment analysis` is performed only at this stage, it is mixed into the same loop.
+Note: in the HotSpot JVM implementation, the `alignment analysis` is performed only at this stage, it is mixed into the same loop.
 
 **Algorithm Step 3: Extend PackSet (to non memory nodes)**
 
@@ -357,7 +357,7 @@ I have not investigated this much, so I cannot provide more details.
 
 **Implementation Overview**
 
-This is a quick overview of the Hotspot JVM SuperWord implementation, with a few comments:
+This is a quick overview of the HotSpot JVM SuperWord implementation, with a few comments:
 
 ```
 // perform analysis to see how much a loop should be unrolled

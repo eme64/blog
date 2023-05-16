@@ -24,6 +24,7 @@ But here a quick recap:
     - `isomorphic` (they do the same operaton on the same type).
     - `independent` (none of the pack's members has another pack member in its (recursive) inputs).
     - Currently, memops packs are also restricted to be `adjacent`, but we may be able to relax this in the future.
+    - This packset was build by "seeding" with adjacent memory ops, and then extending this seed via non-memory ops.
   - Before scheduling, we have already checked that:
     - All packs are `implementable` (the vector operations exist on the platform).
     - All packs are `profitable` (it is worth vectorizing them, rather than leaving them as scalars).
@@ -55,7 +56,7 @@ If there is a cycle in the PacksetGraph, then the linearization fails, and we ca
 Currently, we bail out of vectorization, but one could also just remove some packs, filter again (to check `implemented` and `profitable`),
 rebuild the PacksetGraph and see if it can be scheduled then.
 
-See implementation and more details here:
+See implementation and more details here (also more details about why `independence` at pack level can still lead to cycles in the PacksetGraph):
 [JDK-8304042](https://bugs.openjdk.org/browse/JDK-8304042): C2 SuperWord: schedule must remove packs with cyclic dependencies ([PR](https://github.com/openjdk/jdk/pull/13078))
 
 The linearization ensures that packed memops are now directly succeeding each other, with no other ops in between (and specifically no memops).

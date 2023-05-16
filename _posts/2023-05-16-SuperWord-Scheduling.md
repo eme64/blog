@@ -28,8 +28,6 @@ But here a quick recap:
     - All packs are `implementable` (the vector operations exist on the platform).
     - All packs are `profitable` (it is worth vectorizing them, rather than leaving them as scalars).
 
-
-
 **Problem statement: what does the schheduling need to do?**
 
 Given the `packset` and the `dependency-graph`, we must do the following now:
@@ -44,16 +42,37 @@ Let us look into each of these steps in more detail.
 
 **Building the PacksetGraph**
 
-TODO
+The idea is to compute the dependency graph after vectorization.
+The `PacksetGraph` basically maps the dependence-graph from the pre-vectorization graph to the vectorized graph.
+For this, we merge the scalar ops of a pack into a one pack-node, while all non packed nodes are represented by a scalar-node.
+The merging of packed nodes means that all dependencies of all members are merged too: whatever is an input of one of them
+needs to be executed before all of them, and whatever is an output of one of them needs to be executed after all of them.
 
 **Linearizing (scheduling) the PacksetGraph**
 
-TODO
+We sort the PacksetGraph topologically (find a linear order of all PacksetGraph nodes, such that all edges point forward).
+If there is a cycle in the PacksetGraph, then the linearization fails, and we cannot vectorize with the given packset.
+Currently, we bail out of vectorization, but one could also just remove some packs, filter again (to check `implemented` and `profitable`),
+rebuild the PacksetGraph and see if it can be scheduled then.
+
+See implementation and more details here:
+[JDK-8304042](https://bugs.openjdk.org/browse/JDK-8304042): C2 SuperWord: schedule must remove packs with cyclic dependencies ([PR](https://github.com/openjdk/jdk/pull/13078))
+
+The linearization ensures that packed memops are now directly succeeding each other, with no other ops in between (and specifically no memops).
+This will come in handy in the next step.
 
 **Re-ordering the memory slices**
 
-TODO
+After replacing the packed nodes with a single vector operation, they are executed in parallel, which has the same effect
+as loading them in immediate succession.
+Therefore, we want to rebuild the memory slice order accordingly.
+We want the order of the memory slice to represent the sub-order of those memory ops in the PacksetGraph linearization.
+
+See implementation and more details here:
+[JDK-8304720](https://bugs.openjdk.org/browse/JDK-8304720): SuperWord::schedule should rebuild C2-graph from SuperWord dependency-graph ([PR](https://github.com/openjdk/jdk/pull/13354))
 
 **Replacing the scalar nodes with vector nodes**
 
-TODO
+Now we iterate over the packset, generate the corresponding vector node, and subsume all pack members with that new node.
+Since the memops of a pack are now in direct succession, it is now easy to pick the correct memory state for memops:
+we know that the first member's input memory state is the memory state for the vector operation.

@@ -352,8 +352,7 @@ Conclusion: `independence` on the `pack` level is a necessary condition, but not
 
 **Algorithm Step 6: Schedule (patch the graph)**
 
-We replace the nodes in the `packs` with vector operations, and connect them accordingly.
-I have not investigated this much, so I cannot provide more details.
+In the meantime, I have rewritten the scheduling algorithm, please read my dedicated post [here](https://eme64.github.io/blog/2023/05/16/SuperWord-Scheduling.html).
 
 **Implementation Overview**
 

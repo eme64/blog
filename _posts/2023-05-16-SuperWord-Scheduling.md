@@ -33,7 +33,27 @@ But here a quick recap:
 **Problem statement: what does the schheduling need to do?**
 
 Given the `packset` and the `dependency-graph`, we must do the following now:
-- Re-order the memory slices.
+- Build the `PacksetGraph`, which respects both the constraints from:
+  - the `dependency-graph` (the edges)
+  - and the `packset` (packed nodes are now forced to be executed in parallel, thus they must also be constrained by the edges of all other pack members).
+- Linearize this `PacksetGraph` (eg with topsort). If it fails, we must have a cycle introduced by some packs. We bail out of vectorization.
+- Re-order the memory slices: packed loads and stores must have the same memory state.
 - Replace the scalar nodes with vector nodes.
 
-TODO more
+Let us look into each of these steps in more detail.
+
+**Building the PacksetGraph**
+
+TODO
+
+**Linearizing (scheduling) the PacksetGraph**
+
+TODO
+
+**Re-ordering the memory slices**
+
+TODO
+
+**Replacing the scalar nodes with vector nodes**
+
+TODO

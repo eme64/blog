@@ -183,15 +183,25 @@ if it were to be executed can are actually implemented.
 This verification will allow us to simplify the creation and improvement steps,
 and simply speculatively perform those steps, and then just verify if the step was legal.
 
-**Additional Proposals**
+**Proposal Roadmap**
+
 TODO
 
-Improved reductions:
+**Additional Proposals**
 
-Vladimir Ivanov: multiple vector phis for reduction.
+Here are some other ideas which are related to this proposal:
 
-result = 31 * result + a[i]; // "hash code" / polynomial reduction
+1. *Post-loop vectorization with masked vector instructions*.
+This is limited to platforms that implement these vector instructions.
+But when available this can improve the performance, especially if there are many iterations left.
 
+2. *Type issues for byte/short operations because of Shifts*.
+Some loops do not vectorize because the *velt* cannot be rightly determined.
 
-Issues with byte / short and Shift operations -> often prevents packing.
+3. *Improving Reductions*.
+(a) I already moved reductions outside the loop (for reductions where the reduction order does not matter),
+and converted the scalar phis into vector phis. Vladimir Ivanov proposed that one should
+have multiple vector phis when super-unrolling: this removes some dependencies and lowers the latency.
+(b) We should try to handle more complicated reductions (not just add/mul).
+One such example is a "polynomial reduction" (e.g. 'result = 31 * result + a[i]')
 

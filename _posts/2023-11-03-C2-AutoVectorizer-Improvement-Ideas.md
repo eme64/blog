@@ -42,6 +42,30 @@ SuperWord could in principle be used on any basic block (or in an extended way t
 But for a JIT, this would create a higher compile-time cost, and only benefit very few cases in runtime.
 Hence, we focus on loops, which are generally the hottest spots in the code.
 
+**Current SuperWord Implementation: Overview**
+
+A single-iteration loop is first Pre-Main-Post'ed (in same cases Peel-Main-Post).
+The main-loop is supposed to perform the bulk of the work,
+whereas the pre-loop is only used to allow memory accesses in the main-loop to be aligned,
+and the post-loop executes the remaining iterations.
+
+The main-loop is strip-mined (cut main-loop into strips, only SafePoint after every strip).
+Then, the main-loop is unrolled (depending on the array element types, such that we
+hopefully can fill the vector registers). Now the main-loop hopefully has enough parallelism
+for SuperWord to vectorize the loop. We then make a copy of this vectorized loop, and call
+it the "vectorized drain loop". We further super-unroll the main-loop, so that the CPU
+pipeline can be more saturated.
+A general execution of the loop spends a few iterations in the pre-loop, to reach alignment,
+then performs many iterations in the main-loop. Since the stride in the main-loop is now quite
+large, there are still many iterations left at afterwards. We execute as many as possible in
+the "vectorized drain loop", and the rest is executed by the post-loop.
+
+There used to be a post-loop vectorizer, but it was badly broken and is currently being re-designed.
+The idea is to use masked instructions to be able to execute all the post-loop iterations at once.
+
+![image](https://github.com/eme64/blog/assets/32593061/c66a9614-e650-4206-8210-bfbf91eb0a5a)
+
+
 **Current SuperWord Implementation: the Limitations**
 
 1. Always first *Unrolled* before even attempt to vectorize.
@@ -84,7 +108,29 @@ It would be very nice if an end-user with only a general understanding of vector
 have a way to query C2 to see what prevented vectorization.
 
 **My Proposal: the Main Project**
-TODO
+
+I was inspired by LLVM's VPlan project.
+I like the idea of analyzing a loop, and creating multiple vectorization "plans", and then chosing the best one
+with a cost model.
+These "plans" can also be created iteratively: one starts some first versions, and then
+iteratively improves them. Or maybe first creating an incomplete "draft plan", and then
+attempting to complete and improve it over multiple steps
+(e.g. adding pack/extract/shuffle nodes, if-conversion, etc).
+
+TODO decription
+
+![image](https://github.com/eme64/blog/assets/32593061/5e9afaab-3fdc-453c-beb3-518e533074b9)
+
 
 **Additional Proposals**
 TODO
+
+Improved reductions:
+
+Vladimir Ivanov: multiple vector phis for reduction.
+
+result = 31 * result + a[i]; // "hash code" / polynomial reduction
+
+
+Issues with byte / short and Shift operations -> often prevents packing.
+

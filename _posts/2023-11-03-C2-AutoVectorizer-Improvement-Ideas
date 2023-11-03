@@ -44,8 +44,44 @@ Hence, we focus on loops, which are generally the hottest spots in the code.
 
 **Current SuperWord Implementation: the Limitations**
 
-1. 
+1. Always first *Unrolled* before even attempt to vectorize.
+This creates overhead (more nodes), and limits vectorization to small loops (node limit for unrolling).
+What is missing is a loop-vectorizer that directly widens the scalar operations of a single-iteration loop.
+Only if that fails should we unroll.
 
+2. *No If-Conversion*.
+We only allow control-free loops to be vectorized.
+In some cases, control-flow can already be flattened before vectorization with CMove.
+But usually flattening control flow is only profitable if one also vectorizes.
+In C2, we have a number of intrinsics for "search-loops", which essentially search over an array,
+and exit as soon as they find a specific value. It is very likely that the hand-crafted vectorization
+in the intrinsics would be obsoleted if the auto-vectorizer could handle additional exit conditions
+(other than the limit check).
+
+3. Only have one attempt at vectorizing.
+Sometimes, it would be beneficial to try different strategies for vectorization.
+One would have to model the transformation. One would then filter out which ones succeed,
+and chose the one that is most profitable.
+
+4. *No cost-model*.
+There are some local cost considerations in SuperWord.
+But we require a const model that can compare different vectorization strategies,
+and determine if any of them are better than not vectorizing.
+This is especially relevant if there are any reductions
+(the cost varies greatly on the type of reduction,
+and especially depending on whether the reduction order matters),
+shuffles (lane swaps, or reversal of order), packing or extracting.
+
+5. *Aliasing Analysis* can be improved.
+When we encounter two array references, we always have to assume that they could be the same array.
+This causes there to be more memory dependencies which can prevent vectorization.
+
+6. *Interpretability*: why did my loop not vectorize?
+There are multiple compile flags (TraceSuperWord, TraceNewVectors, Verbose, VectorizeDebugOption, TraceLoopOptimizations)
+which give information at very different levels of detail.
+It basically requires an expert in SuperWord to understand why vectorization was prevented.
+It would be very nice if an end-user with only a general understanding of vectorization could
+have a way to query C2 to see what prevented vectorization.
 
 **My Proposal: the Main Project**
 TODO

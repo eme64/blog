@@ -260,6 +260,13 @@ We could try to use parallel streams, where we know that iterations are guarante
 However, we need a way to separate them from sequential streams where the order of iterations matters.
 We might want to annotate a loop as "parallel".
 
+6. *Strided and Gather/Scatter Memory Access*.
+There are currently some alignment assumptions in the SuperWord code that need to be
+changed to allow for strided access, otherwise those nodes are not packed.
+Gather / Scatter operations are more tricky because their RangeChecks can presumably not be
+eliminated (i.e. moved out of the loop). Hence we require if-conversion, unless we are
+using Unsafe operations which do not have RangeChecks.
+
 **General Principles**
 
 These are some general principles that I would like to work towards:

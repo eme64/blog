@@ -267,6 +267,24 @@ Gather / Scatter operations are more tricky because their RangeChecks can presum
 eliminated (i.e. moved out of the loop). Hence we require if-conversion, unless we are
 using Unsafe operations which do not have RangeChecks.
 
+7. *Prefix-sum, scans and segmented scans*.
+John Rose mentioned that one could also detect more complex patterns,
+such as prefix-sum. We can also generalize to "scans" with any associative operation `+`
+(addition, multiplication, min, max, and, or, xor, etc).
+Additionally, we can then generalize even futher, by concatenating many
+such segments with a delimiter in between. We can then launch a single
+scan over all segments. This "segmented scan" would then compute the "scan" value
+but somehow "reset" the values at a delimiter.
+This way, we could have a large collection of different size strings in a single array,
+separated by delimiters, and then compute all hashes at with a single "segmented scan".
+John Rose says there are much more ideas where this is coming from.
+My intuition is that these are essentially generalized "reduction" patterns.
+We should somehow detect these, and extract "reduction/scan" nodes out of the
+"soup" of nodes in the loop.
+Generalizing reductions to scans should already be possible now.
+But the segmented scan may require some simple control flow, and hence depend on if-conversion.
+Also, detecting such patterns in a single-iteration loop may be much simpler.
+
 **General Principles**
 
 These are some general principles that I would like to work towards:

@@ -42,6 +42,11 @@ SuperWord could in principle be used on any basic block (or in an extended way t
 But for a JIT, this would create a higher compile-time cost, and only benefit very few cases in runtime.
 Hence, we focus on loops, which are generally the hottest spots in the code.
 
+**Current SuperWord Implementation: the Limitations**
+
+1. 
+
+
 **My Proposal: the Main Project**
 TODO
 

@@ -49,6 +49,8 @@ The main-loop is supposed to perform the bulk of the work,
 whereas the pre-loop is only used to allow memory accesses in the main-loop to be aligned,
 and the post-loop executes the remaining iterations.
 
+![image](https://github.com/eme64/blog/assets/32593061/c66a9614-e650-4206-8210-bfbf91eb0a5a)
+
 The main-loop is strip-mined (cut main-loop into strips, only SafePoint after every strip).
 Then, the main-loop is unrolled (depending on the array element types, such that we
 hopefully can fill the vector registers). Now the main-loop hopefully has enough parallelism
@@ -65,8 +67,6 @@ and the rest is executed by the post-loop (e.g. 7x).
 
 There used to be a post-loop vectorizer, but it was badly broken and is currently being re-designed.
 The idea is to use masked instructions to be able to execute all the post-loop iterations at once.
-
-![image](https://github.com/eme64/blog/assets/32593061/c66a9614-e650-4206-8210-bfbf91eb0a5a)
 
 **Current SuperWord Implementation: the Limitations**
 
@@ -119,6 +119,8 @@ iteratively improves them. Or maybe first creating an incomplete "draft plan", a
 attempting to complete and improve it over multiple steps
 (e.g. adding pack/extract/shuffle nodes, if-conversion, etc).
 
+![image](https://github.com/eme64/blog/assets/32593061/5e9afaab-3fdc-453c-beb3-518e533074b9)
+
 1. *Vectorize single-iteration loops*.
 We should attempt to vectorize main-loops before unrolling.
 We can do this by simply attempting to widen all instructions to multiple iterations.
@@ -154,7 +156,7 @@ I imagine there being these "on-ramps":
 with the hope of being able to later widening all (or at least sufficiently many).
 (c) Via SLP after unrolling, if the other methods have failed.
 
-5. *VectorTransform Improvement*
+5. *VectorTransform Improvement*.
 There would be multiple "steps" to complete and improve the candidate VectorTransforms.
 Here some examples:
 (a) Widen the nodes, if possible such that the vector registers can be filled.
@@ -165,15 +167,21 @@ from an input and  we need to extract it now, etc.)
 (c) If-Conversion: we may at first pack control flow, pretending that multiple Ifs can be
 executed in parallel. At some point, this control flow has to either be flattened (CMove),
 or turned into "if-all-true" and "if-all-false" checks. Additionally, we may have multiple
-exits to the loop.
+exits to the loop (e.g. search-loops). We need to ensure that we exit the loop before
+undesired side-effects.
+(d) Idealization: improve the graph similar to IGVN, by reshaping local parts of the graph.
+We need to this as part of the vectorizer, since this may improve cost of the candidate
+vectorization.
 
-TODO continue
-
-7. *xxx*
-xxxx
-
-![image](https://github.com/eme64/blog/assets/32593061/5e9afaab-3fdc-453c-beb3-518e533074b9)
-
+6. *VectorTransform Verification*.
+If we allow the creation of incomplete VectorTransforms, then an improvement step may
+or may not be able to "complete" it, and make it an executable VectorTransform.
+We need to verify if all node inputs match, and if the packing and widening and
+if conversion does not introduce circular dependencies.
+We must also be able to check if all C2 IR nodes a VectorTransform would generate
+if it were to be executed can are actually implemented.
+This verification will allow us to simplify the creation and improvement steps,
+and simply speculatively perform those steps, and then just verify if the step was legal.
 
 **Additional Proposals**
 TODO

@@ -255,6 +255,11 @@ memory dependencies that can prevent vectorization.
 In some cases we can also do this speculatively, and either have a trap that leads to
 decompilation or a "slow" loop.
 
+5. "Parallel Streams".
+We could try to use parallel streams, where we know that iterations are guaranteed not to have dependencies.
+However, we need a way to separate them from sequential streams where the order of iterations matters.
+We might want to annotate a loop as "parallel".
+
 **General Principles**
 
 These are some general principles that I would like to work towards:

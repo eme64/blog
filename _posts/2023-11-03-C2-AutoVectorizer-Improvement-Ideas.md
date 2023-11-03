@@ -5,10 +5,12 @@ date: 2023-11-03
 
 **Motivation**
 
-I want to quickly summarize my ideas for improving C2's autovectorization capabilities, and some that others have brought up to me.
+I want to quickly summarize my ideas for improving Hotspot JVM C2's autovectorization capabilities, and some that others have brought up to me.
 
 Recently, I have gained quite a bit of experience with SuperWord, about which I have written previous posts.
 I mostly worked on fixing bugs, but also added some improvements of my own.
+In [JDK-8317424](https://bugs.openjdk.org/browse/JDK-8317424) I track the progress on SuperWord,
+the current AutoVectorization algorithm in C2.
 
 **AutoVectorization: Background**
 
@@ -244,8 +246,11 @@ Some loops do not vectorize because the *velt* cannot be rightly determined.
 and converted the scalar phis into vector phis. Vladimir Ivanov proposed that one should
 have multiple vector phis when super-unrolling: this removes some dependencies and lowers the latency.
 (b) We should try to handle more complicated reductions (not just add/mul).
-One such example is a "polynomial reduction" (e.g. 'result = 31 * result + a[i]')
+One such example is a "polynomial reduction" (e.g. `result = 31 * result + a[i]`)
 
 **Conclusion**
 
-TODO
+I wanted to post about this so that others are aware of my plans.
+These plans are still under development, and I do not guarantee that all or any of it will be realized.
+I'm open for feeback and additional ideas.
+If you are looking to contribute or collaborate, then feel free to contact me.

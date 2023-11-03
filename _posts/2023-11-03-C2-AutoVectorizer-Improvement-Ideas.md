@@ -55,16 +55,18 @@ hopefully can fill the vector registers). Now the main-loop hopefully has enough
 for SuperWord to vectorize the loop. We then make a copy of this vectorized loop, and call
 it the "vectorized drain loop". We further super-unroll the main-loop, so that the CPU
 pipeline can be more saturated.
-A general execution of the loop spends a few iterations in the pre-loop, to reach alignment,
-then performs many iterations in the main-loop. Since the stride in the main-loop is now quite
-large, there are still many iterations left at afterwards. We execute as many as possible in
-the "vectorized drain loop", and the rest is executed by the post-loop.
+A general execution of the loop spends a few iterations in the pre-loop (e.g. 3x), to reach alignment,
+then performs many iterations in the main-loop (e.g. 1000x with stride 64).
+Since the stride in the main-loop is now quite large
+(64, because 8x unroll/vectorized, and again 8x super-unrolled),
+there are still many iterations left at afterwards (eg. 63).
+We execute as many as possible in the "vectorized drain loop" (e.g. 7x with stride 8),
+and the rest is executed by the post-loop (e.g. 7x).
 
 There used to be a post-loop vectorizer, but it was badly broken and is currently being re-designed.
 The idea is to use masked instructions to be able to execute all the post-loop iterations at once.
 
 ![image](https://github.com/eme64/blog/assets/32593061/c66a9614-e650-4206-8210-bfbf91eb0a5a)
-
 
 **Current SuperWord Implementation: the Limitations**
 
@@ -117,7 +119,58 @@ iteratively improves them. Or maybe first creating an incomplete "draft plan", a
 attempting to complete and improve it over multiple steps
 (e.g. adding pack/extract/shuffle nodes, if-conversion, etc).
 
-TODO decription
+1. *Vectorize single-iteration loops*.
+We should attempt to vectorize main-loops before unrolling.
+We can do this by simply attempting to widen all instructions to multiple iterations.
+If there is already SuperWord level parallelism in the single-iteration loop
+(e.g. hand-unrolling, or rgba color computation, etc) then we can pack these
+instructions already, and then further widen the packs to multiple iterations.
+We can call this the *hybrid* approach (SLP + widening).
+If vectorization fails at this point, or is not profitable, we can still unroll,
+and retry vectorization after that.
+
+2. *Introduce a cost-model*.
+We must be able to tell if vectorization is profitable.
+I propose that every IR node should be assigned with a cost,
+and the cost of the loop is simply the sum of all node costs.
+The cost model will most likely be platform dependent.
+
+3. *Model vectorization in a VectorTransform IR*.
+This would be the C2 equivalent to LLVM's VPlan.
+Every vectorization strategy creates such a VectorTransform, which describes how the
+current pre-vectorized C2 IR can be vectorized.
+A VectorTransform must be able to estimate the cost of the vectorized code it would produce.
+And it must be able to "execute" the vectorization, making all the required changes to the IR.
+But before we execute a VectorTransform, the C2 IR must not be mutated at all.
+This ensures that we can have multiple candidate VectorTransforms in parallel,
+and only execute one, or none if the pre-vectorized IR is cheaper according to the cost-model.
+A VectorTransform is represented by a graph, where the nodes correspond to post-vectorized
+IR nodes.
+
+4. *VectorTransform Creation*
+I imagine there being these "on-ramps":
+(a) Via SLP, if there is such parallelism in the single-iteration loop.
+(b) Directly packing every single-iteration operation into its own node,
+with the hope of being able to later widening all (or at least sufficiently many).
+(c) Via SLP after unrolling, if the other methods have failed.
+
+5. *VectorTransform Improvement*
+There would be multiple "steps" to complete and improve the candidate VectorTransforms.
+Here some examples:
+(a) Widen the nodes, if possible such that the vector registers can be filled.
+(b) Add shuffle / pack / extract nodes between VectorTransform nodes that do not yet
+match (e.g. the order of vector lanes is off, a node packs multiple instructions that
+use the same value and we need to replicate that value now, or a node uses a single value
+from an input and  we need to extract it now, etc.)
+(c) If-Conversion: we may at first pack control flow, pretending that multiple Ifs can be
+executed in parallel. At some point, this control flow has to either be flattened (CMove),
+or turned into "if-all-true" and "if-all-false" checks. Additionally, we may have multiple
+exits to the loop.
+
+TODO continue
+
+7. *xxx*
+xxxx
 
 ![image](https://github.com/eme64/blog/assets/32593061/5e9afaab-3fdc-453c-beb3-518e533074b9)
 

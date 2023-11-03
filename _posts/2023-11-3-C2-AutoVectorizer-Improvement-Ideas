@@ -1,0 +1,49 @@
+---
+title: "C2 AutoVectorizer Improvement Ideas"
+date: 2023-11-03
+---
+
+**Motivation**
+
+I want to quickly summarize my ideas for improving C2's autovectorization capabilities, and some that others have brought up to me.
+
+Recently, I have gained quite a bit of experience with SuperWord, about which I have written previous posts.
+I mostly worked on fixing bugs, but also added some improvements of my own.
+
+**AutoVectorization: Background**
+
+From what I know, there are different types of vectorizers:
+
+- Innermost loop vectorization: take a single-iteration loop (not unrolled), and widen all scalar operations to cover multiple iterations.
+- Outer-loop vectorization: take for example 8 iterations of the outer loop, which gives you 8 full executions of the inner loop. Co-iterate over those 8 executions in a vectorized way.
+- SuperWord Level Parallelism: Find parallel code shapes that can be packed into vector instructions. This can be used for any segment (eg basic blocks) of code that has enough parallelism, not just loops.
+
+**Considerations for the JVM**
+
+In C2 (Hotspot JVM) we apply the SuperWord algorithm to an unrolled loop body, though only if there is no control flow in the loop.
+If there is parallelism between the loop iterations, then unrolling brings this into a basic block, and SuperWord can vectorize that basic block.
+
+In the JVM, we must ensure to "SafePoint" frequently, so that the execution of the compiled code can be interrupted.
+There are multiple reasons for such interruptions, but one is the GC, or if we need to jump back to the interpreter for some reason.
+At such a SafePoint, we must be at an exact bytecode, and the state must be consistent.
+After all, we might have to go back to the interpreter at that point.
+
+This makes things like loop fusion and outer-loop vectorization difficult.
+We could only have a SafePoint before of after fused loops, and not during
+(otherwise we may have all loops half-executed, and this does not leave us at any specific bytecode).
+Hence, one would have to guarantee that the inner loops are short enough, such that the latency does not get too high.
+
+Frequent SafePointing is also the reason for "Strip-Mining" the loops: we cut a loop into multiple strips of a limited
+number of iterations. Between each such strip, we place a SafePoint. This ensures that the latency is low enough, while
+still having long enough strips without SafePoints, such that we can freely rearrange operations for vectorization.
+
+As said above, we currently only apply SuperWord to the basic block of a control-free innermost loop.
+SuperWord could in principle be used on any basic block (or in an extended way to multiple blocks).
+But for a JIT, this would create a higher compile-time cost, and only benefit very few cases in runtime.
+Hence, we focus on loops, which are generally the hottest spots in the code.
+
+**My Proposal: the Main Project**
+TODO
+
+**Additional Proposals**
+TODO

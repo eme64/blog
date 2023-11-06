@@ -267,7 +267,7 @@ Gather / Scatter operations are more tricky because their RangeChecks can presum
 eliminated (i.e. moved out of the loop). Hence we require if-conversion, unless we are
 using Unsafe operations which do not have RangeChecks.
 
-7. *Prefix-sum, scans and segmented scans*.
+7. *Prefix-sum, scans and segmented scans, filter*.
 John Rose mentioned that one could also detect more complex patterns,
 such as prefix-sum. We can also generalize to "scans" with any associative operation `+`
 (addition, multiplication, min, max, and, or, xor, etc).
@@ -284,6 +284,11 @@ We should somehow detect these, and extract "reduction/scan" nodes out of the
 Generalizing reductions to scans should already be possible now.
 But the segmented scan may require some simple control flow, and hence depend on if-conversion.
 Also, detecting such patterns in a single-iteration loop may be much simpler.
+Filter is also a very common component of working with loops.
+For example, we want to extract all elements that satisfy some condition into a new array.
+This means we have to extract an arbitrary number of lanes, and then store that data
+with a mask.
+There may be many more ideas down this avenue to be explored and optimized in the future.
 
 **General Principles**
 

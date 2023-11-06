@@ -67,7 +67,7 @@ there are still many iterations left at afterwards (eg. 63).
 We execute as many as possible in the "vectorized drain loop" (e.g. 7x with stride 8),
 and the rest is executed by the post-loop (e.g. 7x).
 
-There used to be a post-loop vectorizer, but it was badly broken and is currently being re-designed.
+There used to be a post-loop vectorizer, but it was broken and is currently being re-designed.
 The idea is to use masked instructions to be able to execute all the post-loop iterations at once.
 
 **Current SuperWord Implementation: the Limitations**

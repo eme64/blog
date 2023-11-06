@@ -225,7 +225,7 @@ If a vector memory access is performed that is not `X`-byte aligned, this may le
 Some CPU's will also throw a `SIGBUS` error.
 And others simply ignore the lower bits, which leads to an access at a different location than intended (and hence to wrong results).
 
-The JVM code picks one packset as the reference (`best`). All other packsets have to be at an offset that aligns with `best`.
+The JVM code picks one pack as the reference (`best`). All other pack have to be at an offset that aligns with `best`.
 We can then adjust the iteration count of the Pre-loop such that `best` is `X`-byte aligned to the memory. Since all other packsets are `X`-byte aligned relative to `best`, they then also `X`-byte aligned to the memory.
 
 Note: currently the JVM code picks `X` to be the `vector_width` of the largest packset. This is suboptimal and should be improved.

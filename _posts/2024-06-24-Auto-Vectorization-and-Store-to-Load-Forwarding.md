@@ -31,7 +31,28 @@ some special-cases where vectorization leads to a regression, and that is what h
 
 **Auto-Vectorization**
 
-TODO: give basic idea with simple example.
+This is just a quick recap - feel free to read more in my other blog posts about how SuperWord works.
+The basic idea is to pack many scalar operations into a vercot operation, and thus reduce the number
+of instructions the CPU needs to execute to do the same work. This can speed up the execution time.
+A simple example:
+
+```
+    for (int i = 0; i < a.length; i++) {
+        a[i] = b[i] + c[i];
+    }
+```
+
+This loop can be unrolled and vectorized to:
+
+```
+    for (int i = 0; i < a.length; i+=4) {
+        a[i .. j+3] = element_wise_add(b[i .. j+3], c[i .. i+3]);
+    }
+```
+
+Thus, for the 4x unrolling, there would have been 4x 2 loads, 4x 1 add, and 4x 1 store.
+For the vectorized loop, there are 2 vector-loads, 1 vector-add, and 1 vector-store,
+thus only a quarter of the instructions.
 
 **Store-to-Load-Forwarding**
 

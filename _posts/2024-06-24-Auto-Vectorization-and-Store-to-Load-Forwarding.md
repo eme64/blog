@@ -56,6 +56,37 @@ thus only a quarter of the instructions.
 
 **Store-to-Load-Forwarding**
 
+When a store operation is executed on a CPU, this value is not directly written to main memory.
+First, it is put in the store-buffer, from there it may go to a cache-line (e.g. in L1), move
+to slower caches (e.g. L2) and eventually, it maybe written to main memory. If a later store
+overwrites an earlier store, and the earlier store has not yet reached main memory, it could
+be that the earlier store is already replaced with the later store in the store-buffer, or one
+of the caches - and the earlier store may never reach the main memory, and maybe not even the
+cache.
+
+When a load is executed, the CPU thus also does not have to load from main memory if the data
+is available in one of the caches. Loading from cache is much faster than loading from main
+memory. But even more interestingly: we can already load values from the store-buffer in
+some cases. This can cut down the store-load latency drastically. For example:
+
+```
+    store(adr, val);
+    val = load(adr);
+```
+
+If the store would first have to complete before the load could be executed, we may have to wait many
+CPU cycles before the store reaches the L1 cache. But the store is already in the store-buffer, and
+we can direcly forward the value from there, completing the load much quicker, possibly before the
+store even reaches the L1 cache. This optimization, of loading from the store-buffer directly, is called
+store-to-load-forwarding.
+You can reference the [Intel Software Optimization Manual](https://cdrdv2.intel.com/v1/dl/getContent/671488)
+from [here](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html),
+section 3.6.4, and 3.6.4.1 for restrictions on size and alignment.
+
+There are some limitations to this optimization. Generally, there are two rules:
+- The load must have the same starting address as the earlier store.
+- The loaded data must be fully contained in the stored data.
+
 TODO: explain it, and the restrictions. Mention Intel manual, and maybe ARMs?
 
 **Performance Regression when Vectorization incurs penalty due to failed store-forward**

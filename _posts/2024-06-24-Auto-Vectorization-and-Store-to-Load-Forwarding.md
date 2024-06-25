@@ -22,12 +22,14 @@ because of loads `b[i]` and `a[i+1]`, where the constant offset of the indices a
 
 ```
     for (int i = 0; i < a.length-1; i++) {
-        a[i] = (int)(b[i] + a[i+1]);
+        a[i] = b[i] + a[i+1];
     }
 ```
 
-Allowing more loops to vectorize generally unlocks speedups, but there is always a risk that there are
-some special-cases where vectorization leads to a regression, and that is what happened here.
+Allowing more loops to vectorize generally unlocks speedups, like for the example above. But there is always
+a risk that there are some special-cases where vectorization leads to a regression, and that is what happened
+with [JDK-8334431](https://bugs.openjdk.org/browse/JDK-8334431), and I will come back to it at the end of
+this blog post. But first some background.
 
 **Auto-Vectorization**
 
@@ -53,6 +55,19 @@ This loop can be unrolled and vectorized to:
 Thus, for the 4x unrolling, there would have been 4x 2 loads, 4x 1 add, and 4x 1 store.
 For the vectorized loop, there are 2 vector-loads, 1 vector-add, and 1 vector-store,
 thus only a quarter of the instructions.
+
+Generally, vectorizing a loop unlocks speedups, because instead of executing many scalar operations
+we can execute fewer vector operations. This reduces the number of instructions the CPU needs to
+execute to get the same work done. Executing fewer instructions generally means faster execution.
+
+Some loops cannot be vectorized, here some common reasons (there are many more):
+- Not all scalar operations have corresponding vector operations (e.g. division).
+- Loop carried dependencies: if computations in iteration `i` depend on values from iteration `i-1`, then this can prevent the parallel execution of iterations `i-1` and `i`, i.e. the instcutions cannot be packed in a vector instruction that executes all operations in parallel.
+- Control-flow in loop body: not all vectorizers allow CFG in the loop body, or only support certain CFG shapes.
+
+Some loops are faster in their scalar form, and slower when vectorized. Some example reasons:
+- Reduction over floating-point numbers where order of reduction must be followed to avoid rounding differences. Float and double addition and multiplication cannot be reordered without changing the result. A scalar loop that linearly adds up 8 floats needs to perform 7 additions in sequence. If the loop was vectorized with 8 lanes per vector, we have a vector of 8 values. To linearly add these values, we first need to unpack/shuffle the values, and only then add up the extracted values with 7 sequential additions. The unpacking/shuffling can incur such a significant overhead that vectorization can make the loop slower.
+- More generally: vectorization sometimes requires additional instructions, such as pack, unpack and shuffle operations. If vectorization is profitable depends on the gains made by parallelization versus the losses incured by additional instructions.
 
 **Store-to-Load-Forwarding**
 
@@ -134,8 +149,25 @@ My source for this section is the
 from [here](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html),
 in section 3.6.4, and 3.6.4.1 for restrictions on size and alignment.
 
-**Performance Regression when Vectorization incurs penalty due to failed store-forward**
+**Performance Regression when Vectorization incurs penalty of failed store-forward**
 
-TODO: show example, and some benchmarks.
+It turns out that the penalties of failed store-forward is yet another reason why vectorization is not always profitable.
+Let us look at a benchmark and the performance measured on my `11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz`, an x64
+machine with Ubuntu. Though similar behaviour can be experienced on other x64 machines, and on aarch64 machines, and
+probably on many other platforms that implement store-to-load-forwarding.
+
+I ran the following benchmark for `OFFSET = 0 ... 9`, both with `UseSuperWord` enabled and disabled.
+
+```
+    for (int i = 10; i < SIZE; i++) {
+        aI[i] = aI[i - OFFSET] + 1;
+    }
+```
+
+Here are the results:
+
+TODO: graph.
+
+TODO: discussion
 
 

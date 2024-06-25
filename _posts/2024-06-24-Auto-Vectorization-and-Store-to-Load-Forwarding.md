@@ -93,7 +93,7 @@ If the store would first have to complete before the load could be executed, we 
 CPU cycles before the store reaches the L1 cache. But the store is already in the store-buffer, and
 we can direcly forward the value from there, completing the load much quicker, possibly before the
 store even reaches the L1 cache. This optimization, of loading from the store-buffer directly, is called
-store-to-load-forwarding.
+store-to-load-forwarding, or store-forwarding.
 
 Why would anyone load from the same address that they just stored to?
 - Stack spilling and passing arguments via the stack. In both cases we cannot or do not want to carry the values with a register.
@@ -156,7 +156,7 @@ Let us look at a benchmark and the performance measured on my `11th Gen Intel(R)
 machine with Ubuntu. Though similar behaviour can be experienced on other x64 machines, and on aarch64 machines, and
 probably on many other platforms that implement store-to-load-forwarding.
 
-I ran the following benchmark for `OFFSET = 0 ... 9`, both with `UseSuperWord` enabled and disabled.
+I ran the following benchmark for `OFFSET = 0 ... 20`, both with `UseSuperWord` enabled and disabled, i.e. `vector` and `scalar` loops.
 
 ```
     for (int i = 10; i < SIZE; i++) {
@@ -202,6 +202,21 @@ regression as we got in the benchmark above with `OFFSET = 3`.
 This loop only starts to be vectorized with [JDK-8325155](https://bugs.openjdk.org/browse/JDK-8325155), after which we allow the vectorization of
 multiple loads with different constant offsets, here: `W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16]`.
 
+However, the benchmark above already has a "regression" with vectorization before [JDK-8325155](https://bugs.openjdk.org/browse/JDK-8325155), so
+we should address this more holistically. Reverting [JDK-8325155](https://bugs.openjdk.org/browse/JDK-8325155) would only solve a few cases that
+have now been revealed.
+
 **Possible Solutions**
 
-TODO
+We should try to detect which store-load dependencies would fail store-to-load-forwarding.
+This could be done relatively easily in SuperWord, and even in IGVN as well.
+
+Possible Solutions:
+- Integrate the additional latency of a load with filed store-forward into the cost-model I will soon introduce in the AutoVectorizer (SuperWord). This cost-model predicts the runtime of the scalar loop versus the vectorized loop, and only applies the vectorization if profitable. However, I had originally planned to only do throughput based cost modeling, i.e. adding up the individual cost per instruction. But we could, and maybe should also do latency based cost modeling, which determines the path with largest latency.
+- Optimize the problematic load. Possibly replace it with other loads, or directly use the value from the stores, and recombine the values with mask/shift/copy. This is applicable to auto vectorization, but could additionally be an independent compiler optimization as well (e.g. in IGVN).
+
+**Conclusion**
+
+So far, I had only heard about the `store-buffer` in theory. It was a fascinating discovery that there can be a very heavy impact on vectorization if the store-to-load-forwarding fails, and loads are stalled until the stores are written from the `store-buffer` to L1 cache.
+Loop-carried dependencies in a scalar loop usually have successful store-to-load-forwarding, because the loads and stores have the same size and are memory aligned in their byte size (e.g. ints are usually 4 byte aligned). But once we pack multiple scalar operations into vectors, we get larger loads and stores that are still only aligned at the scalar data size (e.g. 16 ints are only 4 byte aligned, and not 64 byte aligned). Whereas from 8 scalar int stores we can maybe forward 6 directly to the loads, once we have a vector store with 8 int lanes, the vector load
+may only partially overlap the store data, and no data can be forwarded.

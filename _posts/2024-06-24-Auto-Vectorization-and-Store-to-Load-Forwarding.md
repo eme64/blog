@@ -164,21 +164,44 @@ I ran the following benchmark for `OFFSET = 0 ... 9`, both with `UseSuperWord` e
     }
 ```
 
-Here are the results, for two different array lengths: `size = 80` and `size = 2048`:
+Here are the results, for array length `size = 2048`:
 
-![image](https://github.com/eme64/blog/assets/32593061/59828b46-5b5d-4de5-bf6c-be9273f287d4)
-
-![image](https://github.com/eme64/blog/assets/32593061/9f809616-a6eb-41b9-9e47-546597435ee7)
+![image](https://github.com/eme64/blog/assets/32593061/eeaf8653-ffcb-4dc5-ac33-5b40aa3701b1)
 
 We can see that for both array lengths there are a similar trends:
 - For `OFFSET = 0` we always get the lowest numbers, because there are no loop-carried dependencies, every iteration is completely independent.
 - The scalar loops get slower with `OFFSET = 1` because the load of iteration `i` depends on the store of iteration `i-1`. It seems that store-to-load-forwarding is successful here, but none the less, all iterations are executed sequentially.
 - The scalar loops are maximally slow at `OFFSET = 2`, where we have loop-carried dependencies at distance 2, i.e. the load of iteration `i` depends on the store of iteration `i-2`. I would have expected `OFFSET = 1` to be slower than `OFFSET = 2`, because iterations `i-1` and `i` can be executed in parallel. But `OFFSET = 2` is clearly slower, and I am not sure why.
-- The scalar loops get faster and faster with `OFFSET = 3 .. 9`, asymptotically approaching the performance of `OFFSET = 0`. This is because the loop-carried dependencies are at greater and greater distances, allowing more and more iterations to be performed in parallel, utilizing the CPU pipeline more fully.
+- The scalar loops get faster and faster with `OFFSET = 3 .. 20`, asymptotically approaching the performance of `OFFSET = 0`. This is because the loop-carried dependencies are at greater and greater distances, allowing more and more iterations to be performed in parallel, utilizing the CPU pipeline more fully.
 - The vector loops trivially have the best performance with `OFFSET = 0` because the iterations are fully parallel and maximal size vectors can be used (on my avx512 machine we can hold 64bytes, or 16 ints in a single register).
 - At `OFFSET = 1`, vectorization is roughly at parity with the scalar loop. There is no parallelization to be extracted because of the loop-carried dependency at distance 1.
 - At `OFFSET = 2`, vectorization outperforms the scalar loop, because we can use vectors with 2 int-lanes. The loads from iterations `i, i+1` can perfectly be forwarded from the stores of iterations `i-2, i-1`.
 - At `OFFSET = 3`, we see that vectorization suddenly is horribly slow compared to the scalar loop. Since we have a loop-carried dependency at distance 3, we can have vectors with at most 3 lanes, but we only use 2-lane-vectors because the number of vector lanes must be a power-of-2. Thus, we load from indices `[i-3, i-2]`, `[i-1, i]`, `[i+1, i+2]` ... and store to indices `[i, i+1]`, `[i+2, i+3]`, `[i+4, i+5]`. We see that the starting addresses of the loads and stores are never the same. The loads and stores always only partially overlap. This is the worst case: a load `[i+1, i+2]` depends on both stores `[i, i+1]` and `[i+2, i+3]`, but the load cannot be store-forwarded. This incures the failed store-forward penalty, and the load stalls for those two stores to reach the L1 cache.
-- At `OFFSET = 4, 8` we see that vectorization outperforms the scalar loop. With the possible exception of `OFFSET = 8` with `size = 8`, because the loop is too short and there are other overheads of vectorization (pre/post loops). The loop-carried dependencies are exactly a power-of-2, which means we can use exactly that many vector lanes, and the stores align perfectly with the loads. Thus, store-to-load-forwarding always succeeds.
-- At `OFFSET = 5, 6, 7, 9`, we have loop-carried dependencies that are not power-of-2, thus we use vectors with 4 or 8 lanes. The loads and stores thus do not perfectly align, and store-forwarding fails. However, the larger the loop-carried distance, the less relevant is the increased latency between dependent stores and loads.
+- At `OFFSET = 4, 8, 16` we see that vectorization outperforms the scalar loop. The loop-carried dependencies are exactly a power-of-2, which means we can use exactly that many vector lanes, and the stores align perfectly with the loads. Thus, store-to-load-forwarding always succeeds.
+- At `OFFSET = 5..7, 9..15, 17..20`, we have loop-carried dependencies that are not power-of-2, thus we use vectors with 4, 8, 16 lanes. The loads and stores thus do not perfectly align, and store-forwarding fails. However, the larger the loop-carried distance, the less relevant is the increased latency between dependent stores and loads. We see three distinct blocks: `5..7`, `9..15`, and `17..20`, with better and better performance, as the loop-carried dependency distance and therefore the level of parallelism increase.
 
+Thus, we see that vectorization is only beneficial for `OFFSET = 0, 1, 2, 4, 8, 16`, at least with the current SuperWord implementation.
+The regression for `OFFSET = 3` is especially stark.
+
+**A few details about JDK-8334431**
+
+The regression discovered in [JDK-8334431](https://bugs.openjdk.org/browse/JDK-8334431) interestingly only seemed to impact machines that do not have
+the `sha` CPU feature. That means they do not support the SHA intrinsics which are about 3x faster than the corresponding C2 compiled Java code.
+In that Java code, there is
+[this loop](https://github.com/openjdk/jdk/blob/642084629a9a793a055cba8a950fdb61b7450093/src/java.base/share/classes/sun/security/provider/SHA.java#L158):
+
+```
+    for (int t = 16; t <= 79; t++) {
+        int temp = W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16];
+        W[t] = Integer.rotateLeft(temp, 1);
+    }
+```
+
+Note in particular the load from `W[t-3]` and store to `W[t]`. This creates a loop-carried dependency at distance 3, which ends up with the same exact
+regression as we got in the benchmark above with `OFFSET = 3`.
+This loop only starts to be vectorized with [JDK-8325155](https://bugs.openjdk.org/browse/JDK-8325155), after which we allow the vectorization of
+multiple loads with different constant offsets, here: `W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16]`.
+
+**Possible Solutions**
+
+TODO

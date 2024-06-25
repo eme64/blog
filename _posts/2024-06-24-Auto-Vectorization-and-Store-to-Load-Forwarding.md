@@ -164,6 +164,8 @@ I ran the following benchmark for `OFFSET = 0 ... 20`, both with `UseSuperWord` 
     }
 ```
 
+I am contributing this benchmark in [JDK-8335006](https://bugs.openjdk.org/browse/JDK-8335006).
+
 Here are the results, for array length `size = 2048`:
 
 ![image](https://github.com/eme64/blog/assets/32593061/eeaf8653-ffcb-4dc5-ac33-5b40aa3701b1)

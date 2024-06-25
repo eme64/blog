@@ -66,7 +66,7 @@ cache.
 
 When a load is executed, the CPU thus also does not have to load from main memory if the data
 is available in one of the caches. Loading from cache is much faster than loading from main
-memory. But even more interestingly: we can already load values from the store-buffer in
+memory. But even more interestingly: the CPU can already load values from the store-buffer in
 some cases. This can cut down the store-load latency drastically. For example:
 
 ```
@@ -79,15 +79,60 @@ CPU cycles before the store reaches the L1 cache. But the store is already in th
 we can direcly forward the value from there, completing the load much quicker, possibly before the
 store even reaches the L1 cache. This optimization, of loading from the store-buffer directly, is called
 store-to-load-forwarding.
-You can reference the [Intel Software Optimization Manual](https://cdrdv2.intel.com/v1/dl/getContent/671488)
-from [here](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html),
-section 3.6.4, and 3.6.4.1 for restrictions on size and alignment.
 
-There are some limitations to this optimization. Generally, there are two rules:
+Why would anyone load from the same address that they just stored to?
+- Stack spilling and passing arguments via the stack. In both cases we cannot or do not want to carry the values with a register.
+- Missing compiler optimization.
+- Compiler cannot statically prove that the addresses are identical. But at runtime they happen to be identical, and the CPU can detect this and forward the store data to the load.
+
+There are some limitations to this forwarding optimization. Generally, there are two rules:
 - The load must have the same starting address as the earlier store.
 - The loaded data must be fully contained in the stored data.
 
-TODO: explain it, and the restrictions. Mention Intel manual, and maybe ARMs?
+The rules are so restrictive to allow the implementation in the CPU to be very simple and fast.
+For example, the starting address can be compared exactly, and if a store-to-load-forwarding
+succeeds, all the forwarded data comes from the store value (possibly truncated).
+
+A few examples:
+
+```
+    // 1) Store and load same number of bytes from same starting address -> expect success.
+    store_8_bytes(adr, val_8_bytes);
+    val_8_bytes = load_8_bytes(adr);
+
+    // 2) Store and load not from same starting address -> expect failure.
+    store_8_bytes(adr, val_8_bytes);
+    val_8_bytes = load_8_bytes(adr + 1);
+
+    // 3) Store and load from same starting address, store more bytes than load -> expect success.
+    store_8_bytes(adr, val_8_bytes);
+    val_4_bytes = load_4_bytes(adr);
+
+    // 4) Store and load from same starting address, store fewer bytes than load -> expect failure.
+    store_4_bytes(adr, val_4_bytes);
+    val_8_bytes = load_8_bytes(adr);
+
+    // 5) Load upper bytes from a larger store -> not same starting address -> expect failure.
+    store_8_bytes(adr, val_8_bytes);
+    val_4_bytes = load_4_bytes(adr + 4);
+```
+
+When the CPU detects a store-load dependency (because the memory regions overlap), but the
+store-to-load-forwarding fails, then the load must stall until the store arrives at the L1
+cache. This is a penalty of many CPU cycles and increases the load-latency significantly.
+
+There are some ways to avoid this penalty:
+- Avoid multiple small loads after a large store in the same area: the multiple small loads will not all have the same address as the store. The forwarding will fail and the loads will have a higher latency. Instead do a large load and then shift/mask and register copy the value.
+- Make sure that the loads have the same alignment and size as the stores. It is better to recombine loads with mask/shift/register copy than to have the penalties of a failed store-forward.
+
+Basically: it can be advantageous to add some extra shift/mask instructions. They do of course increase the
+latency by a cycle or two, but this is much better than the many CPU cycles lost in the penalty of a failed
+store-forward.
+
+My source for this section is the
+[Intel Software Optimization Manual](https://cdrdv2.intel.com/v1/dl/getContent/671488)
+from [here](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html),
+in section 3.6.4, and 3.6.4.1 for restrictions on size and alignment.
 
 **Performance Regression when Vectorization incurs penalty due to failed store-forward**
 

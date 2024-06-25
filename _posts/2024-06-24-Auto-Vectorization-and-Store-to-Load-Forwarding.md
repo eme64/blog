@@ -3,7 +3,7 @@ title: "Auto-Vectorization and Store-to-Load-Forwarding"
 date: 2024-06-24
 ---
 
-I habe been working a lot on Hotspot JVM C2's autovectorization, and intend to continue with that.
+I have been working a lot on Hotspot JVM C2's auto vectorization, and intend to continue with that.
 You can read more in my previous blog posts.
 
 Today, I want to spend some time explaining a particular CPU-optimization (store-to-load-forwarding),
@@ -34,7 +34,7 @@ this blog post. But first some background.
 **Auto-Vectorization**
 
 This is just a quick recap - feel free to read more in my other blog posts about how SuperWord works.
-The basic idea is to pack many scalar operations into a vercot operation, and thus reduce the number
+The basic idea is to pack many scalar operations into a vector operation, and thus reduce the number
 of instructions the CPU needs to execute to do the same work. This can speed up the execution time.
 A simple example:
 
@@ -62,12 +62,12 @@ execute to get the same work done. Executing fewer instructions generally means 
 
 Some loops cannot be vectorized, here some common reasons (there are many more):
 - Not all scalar operations have corresponding vector operations (e.g. division).
-- Loop carried dependencies: if computations in iteration `i` depend on values from iteration `i-1`, then this can prevent the parallel execution of iterations `i-1` and `i`, i.e. the instcutions cannot be packed in a vector instruction that executes all operations in parallel.
+- Loop carried dependencies: if computations in iteration `i` depend on values from iteration `i-1`, then this can prevent the parallel execution of iterations `i-1` and `i`, i.e. the instructions cannot be packed in a vector instruction that executes all operations in parallel.
 - Control-flow in loop body: not all vectorizers allow CFG in the loop body, or only support certain CFG shapes.
 
 Some loops are faster in their scalar form, and slower when vectorized. Some example reasons:
 - Reduction over floating-point numbers where order of reduction must be followed to avoid rounding differences. Float and double addition and multiplication cannot be reordered without changing the result. A scalar loop that linearly adds up 8 floats needs to perform 7 additions in sequence. If the loop was vectorized with 8 lanes per vector, we have a vector of 8 values. To linearly add these values, we first need to unpack/shuffle the values, and only then add up the extracted values with 7 sequential additions. The unpacking/shuffling can incur such a significant overhead that vectorization can make the loop slower.
-- More generally: vectorization sometimes requires additional instructions, such as pack, unpack and shuffle operations. If vectorization is profitable depends on the gains made by parallelization versus the losses incured by additional instructions.
+- More generally: vectorization sometimes requires additional instructions, such as pack, unpack and shuffle operations. If vectorization is profitable depends on the gains made by parallelization versus the losses incurred by additional instructions.
 
 **Store-to-Load-Forwarding**
 
@@ -91,7 +91,7 @@ some cases. This can cut down the store-load latency drastically. For example:
 
 If the store would first have to complete before the load could be executed, we may have to wait many
 CPU cycles before the store reaches the L1 cache. But the store is already in the store-buffer, and
-we can direcly forward the value from there, completing the load much quicker, possibly before the
+we can directly forward the value from there, completing the load much quicker, possibly before the
 store even reaches the L1 cache. This optimization, of loading from the store-buffer directly, is called
 store-to-load-forwarding, or store-forwarding.
 
@@ -173,10 +173,10 @@ We can see that for both array lengths there are a similar trends:
 - The scalar loops get slower with `OFFSET = 1` because the load of iteration `i` depends on the store of iteration `i-1`. It seems that store-to-load-forwarding is successful here, but none the less, all iterations are executed sequentially.
 - The scalar loops are maximally slow at `OFFSET = 2`, where we have loop-carried dependencies at distance 2, i.e. the load of iteration `i` depends on the store of iteration `i-2`. I would have expected `OFFSET = 1` to be slower than `OFFSET = 2`, because iterations `i-1` and `i` can be executed in parallel. But `OFFSET = 2` is clearly slower, and I am not sure why.
 - The scalar loops get faster and faster with `OFFSET = 3 .. 20`, asymptotically approaching the performance of `OFFSET = 0`. This is because the loop-carried dependencies are at greater and greater distances, allowing more and more iterations to be performed in parallel, utilizing the CPU pipeline more fully.
-- The vector loops trivially have the best performance with `OFFSET = 0` because the iterations are fully parallel and maximal size vectors can be used (on my avx512 machine we can hold 64bytes, or 16 ints in a single register).
+- The vector loops trivially have the best performance with `OFFSET = 0` because the iterations are fully parallel and maximal size vectors can be used (on my avx512 machine we can hold 64 bytes, or 16 ints in a single register).
 - At `OFFSET = 1`, vectorization is roughly at parity with the scalar loop. There is no parallelization to be extracted because of the loop-carried dependency at distance 1.
 - At `OFFSET = 2`, vectorization outperforms the scalar loop, because we can use vectors with 2 int-lanes. The loads from iterations `i, i+1` can perfectly be forwarded from the stores of iterations `i-2, i-1`.
-- At `OFFSET = 3`, we see that vectorization suddenly is horribly slow compared to the scalar loop. Since we have a loop-carried dependency at distance 3, we can have vectors with at most 3 lanes, but we only use 2-lane-vectors because the number of vector lanes must be a power-of-2. Thus, we load from indices `[i-3, i-2]`, `[i-1, i]`, `[i+1, i+2]` ... and store to indices `[i, i+1]`, `[i+2, i+3]`, `[i+4, i+5]`. We see that the starting addresses of the loads and stores are never the same. The loads and stores always only partially overlap. This is the worst case: a load `[i+1, i+2]` depends on both stores `[i, i+1]` and `[i+2, i+3]`, but the load cannot be store-forwarded. This incures the failed store-forward penalty, and the load stalls for those two stores to reach the L1 cache.
+- At `OFFSET = 3`, we see that vectorization suddenly is horribly slow compared to the scalar loop. Since we have a loop-carried dependency at distance 3, we can have vectors with at most 3 lanes, but we only use 2-lane-vectors because the number of vector lanes must be a power-of-2. Thus, we load from indices `[i-3, i-2]`, `[i-1, i]`, `[i+1, i+2]` ... and store to indices `[i, i+1]`, `[i+2, i+3]`, `[i+4, i+5]`. We see that the starting addresses of the loads and stores are never the same. The loads and stores always only partially overlap. This is the worst case: a load `[i+1, i+2]` depends on both stores `[i, i+1]` and `[i+2, i+3]`, but the load cannot be store-forwarded. This incurres the failed store-forward penalty, and the load stalls for those two stores to reach the L1 cache.
 - At `OFFSET = 4, 8, 16` we see that vectorization outperforms the scalar loop. The loop-carried dependencies are exactly a power-of-2, which means we can use exactly that many vector lanes, and the stores align perfectly with the loads. Thus, store-to-load-forwarding always succeeds.
 - At `OFFSET = 5..7, 9..15, 17..20`, we have loop-carried dependencies that are not power-of-2, thus we use vectors with 4, 8, 16 lanes. The loads and stores thus do not perfectly align, and store-forwarding fails. However, the larger the loop-carried distance, the less relevant is the increased latency between dependent stores and loads. We see three distinct blocks: `5..7`, `9..15`, and `17..20`, with better and better performance, as the loop-carried dependency distance and therefore the level of parallelism increase.
 

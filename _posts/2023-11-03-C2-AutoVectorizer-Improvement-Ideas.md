@@ -354,6 +354,12 @@ These plans are still under development, and I do not guarantee that all or any 
 I'm open for feeback and additional ideas.
 If you are looking to contribute or collaborate, then feel free to contact me.
 
+**Please leave a comment below**
+
+To edit/delete a comment: click on the `date` above your comment, e.g. `just now` or `5 minutes ago`.
+This takes you to the GitHub issue page associated with this blog post. Find your comment, and edit/delete it
+by clicking the three dots `...` on the top right.
+
 <script src="https://utteranc.es/client.js"
         repo="eme64/blog"
         issue-term="pathname"

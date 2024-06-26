@@ -353,3 +353,11 @@ I wanted to post about this so that others are aware of my plans.
 These plans are still under development, and I do not guarantee that all or any of it will be realized.
 I'm open for feeback and additional ideas.
 If you are looking to contribute or collaborate, then feel free to contact me.
+
+<script src="https://utteranc.es/client.js"
+        repo="eme64/blog"
+        issue-term="pathname"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>

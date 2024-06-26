@@ -222,3 +222,202 @@ Possible Solutions:
 So far, I had only heard about the `store-buffer` in theory. It was a fascinating discovery that there can be a very heavy impact on vectorization if the store-to-load-forwarding fails, and loads are stalled until the stores are written from the `store-buffer` to L1 cache.
 Loop-carried dependencies in a scalar loop usually have successful store-to-load-forwarding, because the loads and stores have the same size and are memory aligned in their byte size (e.g. ints are usually 4 byte aligned). But once we pack multiple scalar operations into vectors, we get larger loads and stores that are still only aligned at the scalar data size (e.g. 16 ints are only 4 byte aligned, and not 64 byte aligned). Whereas from 8 scalar int stores we can maybe forward 6 directly to the loads, once we have a vector store with 8 int lanes, the vector load
 may only partially overlap the store data, and no data can be forwarded.
+
+**Appendix: Generated Assembly**
+
+I was asked to show the generated assembly.
+I thought I can give you a simple stand-alone Java file with which you can experiment.
+
+```
+// Suggested to run like this:
+//
+//   java -XX:CompileCommand=compileonly,Benchmark::test* -Xbatch -Dsize=2048 -Doffset=0 -Diterations=1000000 Benchmark.java
+//
+// I often run it with additional arguments:
+//
+//   java -XX:CompileCommand=compileonly,Benchmark::test* -XX:CompileCommand=printcompilation,Benchmark::* -XX:CompileCommand=TraceAutoVectorization,*::*,PRECONDITIONS,BODY,POINTERS,SW_REJECTIONS,SW_INFO -Xbatch -XX:+TraceNewVectors -XX:+TraceLoopOpts -XX:+UseSuperWord -XX:CompileCommand=printassembly,Benchmark::test* -Dsize=2048 -Doffset=0 -Diterations=1000000 Benchmark.java
+//
+// The following arguments are interesting to play with:
+//   - Enable / Disable Vectorization:     -XX:+UseSuperWord
+//   - View generated assembly:            -XX:CompileCommand=printassembly,Benchmark::test*
+//   - View SuperWord algorithm log:       -XX:CompileCommand=TraceAutoVectorization,*::*,PRECONDITIONS,BODY,POINTERS,SW_REJECTIONS,SW_INFO
+//   - View generated vector instructions: -XX:+TraceNewVectors
+//
+public class Benchmark {
+    static final int ITERATIONS = Integer.valueOf(System.getProperty("iterations")); // -Diterations=1000000
+    static final int OFFSET     = Integer.valueOf(System.getProperty("offset"));     // -Doffset=3
+    static final int SIZE       = Integer.valueOf(System.getProperty("size"));       // -Dsize=2048
+    static final int START      = Math.max(0, OFFSET);
+    static final int END        = Math.min(SIZE, SIZE+OFFSET);
+
+    public static void main(String[] args) {
+        int[] W = new int[SIZE];
+
+        System.out.println("Warmup");
+        for (int i = 0; i < 10_000; i++) {
+            test(W);
+        }
+
+        System.out.println("Benchmark");
+        long startTime = System.nanoTime();
+        for (int i = 0; i < ITERATIONS; i++) {
+            test(W);
+        }
+        long stopTime = System.nanoTime();
+        System.out.println("Elapsed time (sec): " + 1e-9 * (float)(stopTime - startTime));
+    }
+
+    public static void test(int[] W) {
+        for (int t = START; t < END; t++) {
+            W[t] = W[t-OFFSET] + 1;
+        }
+    }
+}
+```
+
+Here some interesting assembly snippets. I ran these with `-XX:UseAVX=2` on an x64 machine, in a debug build.
+Of course the performance would be better on a product build.
+I'm only showing the main-loops here, of course there is more code in the compiled method (e.g. pre and post loops).
+
+```
+// -XX:+UseSuperWord -Dsize=2048 -Doffset=0 -Diterations=10000000
+// Loop is unrolled 8x.
+// Full vectorization, using 32 byte ymm registers holding 8 ints each.
+// Super-unrolling of vectorized loop another 8x -> total 64x unrolling.
+// Elapsed time (sec): 1.294545152
+
+ ;; B10: #	out( B11 ) <- in( B11 ) top-of-loop Freq: 2047.99
+  0x00007ff73cbb3191:   mov    %r9d,%r8d                    ;*aload_0 {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@11 (line 41)
+ ;; B11: #	out( B10 B12 ) <- in( B9 B10 ) Loop( B11-B10 inner main of N56) Freq: 2048.99
+  0x00007ff73cbb3194:   vpaddd 0x10(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb319b:   vmovdqu %ymm1,0x10(%rsi,%r8,4)
+  0x00007ff73cbb31a2:   vpaddd 0x30(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb31a9:   vmovdqu %ymm1,0x30(%rsi,%r8,4)
+  0x00007ff73cbb31b0:   vpaddd 0x50(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb31b7:   vmovdqu %ymm1,0x50(%rsi,%r8,4)
+  0x00007ff73cbb31be:   vpaddd 0x70(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb31c5:   vmovdqu %ymm1,0x70(%rsi,%r8,4)
+  0x00007ff73cbb31cc:   vpaddd 0x90(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb31d6:   vmovdqu %ymm1,0x90(%rsi,%r8,4)
+  0x00007ff73cbb31e0:   vpaddd 0xb0(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb31ea:   vmovdqu %ymm1,0xb0(%rsi,%r8,4)
+  0x00007ff73cbb31f4:   vpaddd 0xd0(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb31fe:   vmovdqu %ymm1,0xd0(%rsi,%r8,4)
+  0x00007ff73cbb3208:   vpaddd 0xf0(%rsi,%r8,4),%ymm0,%ymm1
+  0x00007ff73cbb3212:   vmovdqu %ymm1,0xf0(%rsi,%r8,4)      ;*iastore {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@22 (line 41)
+  0x00007ff73cbb321c:   lea    0x40(%r8),%r9d
+  0x00007ff73cbb3220:   cmp    $0x7c1,%r9d
+  0x00007ff73cbb3227:   jl     0x00007ff73cbb3191           ;*if_icmpge {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@8 (line 40)
+```
+
+```
+// -XX:-UseSuperWord -Dsize=2048 -Doffset=0 -Diterations=10000000
+// Unrolled 8x scalar loop.
+// We have 8 "incl" instructions that directly operate on a memory address: load, inc, store.
+// Elapsed time (sec): 6.64991232
+
+ ;; B7: #	out( B8 ) <- in( B8 ) top-of-loop Freq: 2047.99
+  0x00007fca10bb3013:   mov    %r10d,%r8d                   ;*aload_0 {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@11 (line 41)
+ ;; B8: #	out( B7 B9 ) <- in( B6 B7 ) Loop( B8-B7 inner main of N40) Freq: 2048.99
+  0x00007fca10bb3016:   incl   0x10(%rsi,%r8,4)
+  0x00007fca10bb301b:   incl   0x14(%rsi,%r8,4)
+  0x00007fca10bb3020:   incl   0x18(%rsi,%r8,4)
+  0x00007fca10bb3025:   incl   0x1c(%rsi,%r8,4)
+  0x00007fca10bb302a:   incl   0x20(%rsi,%r8,4)
+  0x00007fca10bb302f:   incl   0x24(%rsi,%r8,4)
+  0x00007fca10bb3034:   incl   0x28(%rsi,%r8,4)
+  0x00007fca10bb3039:   incl   0x2c(%rsi,%r8,4)             ;*iastore {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@22 (line 41)
+  0x00007fca10bb303e:   lea    0x8(%r8),%r10d
+  0x00007fca10bb3042:   cmp    $0x7f9,%r10d
+  0x00007fca10bb3049:   jl     0x00007fca10bb3013           ;*goto {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@26 (line 40)
+```
+
+```
+// -XX:+UseSuperWord -Dsize=2048 -Doffset=3 -Diterations=10000000
+// Loop unrolled 8x.
+// Vectorization: because of loop-carried dependency at distance 3, only 2-element-vectors are used.
+// vmovq: load/store 8 bytes.
+// - loads at offsets: 0x4, 0xc, 0x14, 0x1c
+// - stores at offsets: 0x10, 0x18, 0x20, 0x28
+// -> all loads are 8 byte, and overlap with two stores, each only with a 4 byte overlap.
+// -> this creates a store-load dependency, but store-to-load-forwarding-fails
+// -> slow, because load stalls until store reaches L1 cache
+// Elapsed time (sec): 88.33141964800001
+
+ ;; B16: #	out( B17 ) <- in( B17 ) top-of-loop Freq: 2047.98
+  0x00007f2d10bb3290:   mov    %r8d,%r10d                   ;*aload_0 {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@11 (line 41)
+ ;; B17: #	out( B16 B18 ) <- in( B15 B16 ) Loop( B17-B16 inner main of N62) Freq: 2048.98
+  0x00007f2d10bb3293:   vmovq  0x4(%rsi,%r10,4),%xmm1
+  0x00007f2d10bb329a:   vpaddd %xmm0,%xmm1,%xmm1
+  0x00007f2d10bb329e:   vmovq  %xmm1,0x10(%rsi,%r10,4)
+  0x00007f2d10bb32a5:   vmovq  0xc(%rsi,%r10,4),%xmm1
+  0x00007f2d10bb32ac:   vpaddd %xmm0,%xmm1,%xmm1
+  0x00007f2d10bb32b0:   vmovq  %xmm1,0x18(%rsi,%r10,4)
+  0x00007f2d10bb32b7:   vmovq  0x14(%rsi,%r10,4),%xmm1
+  0x00007f2d10bb32be:   vpaddd %xmm0,%xmm1,%xmm1
+  0x00007f2d10bb32c2:   vmovq  %xmm1,0x20(%rsi,%r10,4)
+  0x00007f2d10bb32c9:   vmovq  0x1c(%rsi,%r10,4),%xmm1
+  0x00007f2d10bb32d0:   vpaddd %xmm0,%xmm1,%xmm1
+  0x00007f2d10bb32d4:   vmovq  %xmm1,0x28(%rsi,%r10,4)      ;*iastore {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@22 (line 41)
+  0x00007f2d10bb32db:   lea    0x8(%r10),%r8d
+  0x00007f2d10bb32df:   cmp    $0x7f9,%r8d
+  0x00007f2d10bb32e6:   jl     0x00007f2d10bb3290           ;*goto {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@26 (line 40)
+```
+
+```
+// -XX:-UseSuperWord -Dsize=2048 -Doffset=3 -Diterations=10000000
+// Scalar loop unrolled 8x
+// mov: load/store 4 bytes
+//  - load at offset:  0x4, 0x8, 0xc, 0x10, 0x14, 0x18, 0x1c, 0x20
+//  - store at offset: 0x10, 0x14, 0x18, 0x1c, 0x20, 0x24, 0x28, 0x2c
+// -> all loads align perfectly with a previous store -> perfect store-to-load-forwarding
+// -> While this scalar loop has double as many instructions compared to the vectorized version
+//    above (a priori fewer instructions is faster), avoiding the failed store-forward penalty
+//    is more important.
+// Elapsed time (sec): 20.517240832000002
+
+ ;; B13: #	out( B14 ) <- in( B14 ) top-of-loop Freq: 2047.98
+  0x00007f24f0bb31a0:   mov    %r11d,%r10d                  ;*aload_0 {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@11 (line 41)
+ ;; B14: #	out( B13 B15 ) <- in( B12 B13 ) Loop( B14-B13 inner main of N59) Freq: 2048.98
+  0x00007f24f0bb31a3:   mov    0x4(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31a8:   inc    %r8d
+  0x00007f24f0bb31ab:   mov    %r8d,0x10(%rsi,%r10,4)
+  0x00007f24f0bb31b0:   mov    0x8(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31b5:   inc    %r8d
+  0x00007f24f0bb31b8:   mov    %r8d,0x14(%rsi,%r10,4)
+  0x00007f24f0bb31bd:   mov    0xc(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31c2:   inc    %r8d
+  0x00007f24f0bb31c5:   mov    %r8d,0x18(%rsi,%r10,4)
+  0x00007f24f0bb31ca:   mov    0x10(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31cf:   inc    %r8d
+  0x00007f24f0bb31d2:   mov    %r8d,0x1c(%rsi,%r10,4)
+  0x00007f24f0bb31d7:   mov    0x14(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31dc:   inc    %r8d
+  0x00007f24f0bb31df:   mov    %r8d,0x20(%rsi,%r10,4)
+  0x00007f24f0bb31e4:   mov    0x18(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31e9:   inc    %r8d
+  0x00007f24f0bb31ec:   mov    %r8d,0x24(%rsi,%r10,4)
+  0x00007f24f0bb31f1:   mov    0x1c(%rsi,%r10,4),%r8d
+  0x00007f24f0bb31f6:   inc    %r8d
+  0x00007f24f0bb31f9:   mov    %r8d,0x28(%rsi,%r10,4)
+  0x00007f24f0bb31fe:   mov    0x20(%rsi,%r10,4),%r8d       ;   {no_reloc}
+  0x00007f24f0bb3203:   inc    %r8d
+  0x00007f24f0bb3206:   mov    %r8d,0x2c(%rsi,%r10,4)       ;*iastore {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@22 (line 41)
+  0x00007f24f0bb320b:   lea    0x8(%r10),%r11d
+  0x00007f24f0bb320f:   cmp    $0x7f9,%r11d
+  0x00007f24f0bb3216:   jl     0x00007f24f0bb31a0           ;*goto {reexecute=0 rethrow=0 return_oop=0}
+                                                            ; - Benchmark::test@26 (line 40)
+```
+
+Feel free to play around with other parameters and other platforms.

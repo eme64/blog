@@ -424,7 +424,7 @@ Feel free to play around with other parameters and other platforms.
 
 
 <script src="https://utteranc.es/client.js"
-        repo="https://github.com/eme64/blog"
+        repo="[ENTER REPO HERE]"
         issue-term="pathname"
         theme="github-light"
         crossorigin="anonymous"

@@ -421,3 +421,12 @@ I'm only showing the main-loops here, of course there is more code in the compil
 ```
 
 Feel free to play around with other parameters and other platforms.
+
+
+<script src="https://utteranc.es/client.js"
+        repo="https://github.com/eme64/blog"
+        issue-term="pathname"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>

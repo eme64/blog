@@ -79,6 +79,12 @@ Since the memops of a pack are now in direct succession, it is now easy to pick 
 we know that the first member's input memory state is the memory state for the vector operation.
 
 
+**Please leave a comment below**
+
+To edit/delete a comment: click on the `date` above your comment, e.g. `just now` or `5 minutes ago`.
+This takes you to the GitHub issue page associated with this blog post. Find your comment, and edit/delete it
+by clicking the three dots `...` on the top right.
+
 <script src="https://utteranc.es/client.js"
         repo="eme64/blog"
         issue-term="pathname"

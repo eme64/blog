@@ -77,3 +77,12 @@ See implementation and more details here:
 Now we iterate over the packset, generate the corresponding vector node, and subsume all pack members with that new node.
 Since the memops of a pack are now in direct succession, it is now easy to pick the correct memory state for memops:
 we know that the first member's input memory state is the memory state for the vector operation.
+
+
+<script src="https://utteranc.es/client.js"
+        repo="eme64/blog"
+        issue-term="pathname"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>

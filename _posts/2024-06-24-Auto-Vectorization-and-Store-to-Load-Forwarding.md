@@ -149,6 +149,16 @@ My source for this section is the
 from [here](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html),
 in section 3.6.4, and 3.6.4.1 for restrictions on size and alignment.
 
+Not all Arm chips may have store-to-load-forwarding. Those that do have different implementations and restrictions.
+Some allow larger loads to be combined from 2 stores. Some allow loading smaller sections out of larger stores, with some alignment restrictions.
+Please refer to the relevant sections in the manuals:
+- [Arm Neoverse V2 Core Software Optimization Guide, section 4.5](https://developer.arm.com/documentation/109898/r0p2/?lang=en)
+- [Arm Neoverse N2 Software Optimization Guide, section 4.6](https://developer.arm.com/documentation/PJDOC-466751330-18256/0003/?lang=en)
+- [Arm Neoverse N1 Software Optimization Guide, section 4.6](https://developer.arm.com/documentation/109896/r4p1/?lang=en)
+- [Arm Neoverse V1 Software Optimization Guide, section 4.6](https://developer.arm.com/documentation/109897/6-0/?lang=en)
+
+
+
 **Performance Regression when Vectorization incurs penalty of failed store-forward**
 
 It turns out that the penalties of failed store-forward is yet another reason why vectorization is not always profitable.

@@ -48,7 +48,7 @@ This loop can be unrolled and vectorized to:
 
 ```
     for (int i = 0; i < a.length; i+=4) {
-        a[i .. j+3] = element_wise_add(b[i .. j+3], c[i .. i+3]);
+        a[i .. i+3] = element_wise_add(b[i .. i+3], c[i .. i+3]);
     }
 ```
 

@@ -1,6 +1,6 @@
 ---
 title: "Introduction to HotSpot JVM C2 JIT Compiler, Part 0"
-date: 2025-01-01
+date: 2024-01-01
 ---
 
 I have now worked at Oracle for 3 years. I learned a lot during this time, especially considering that I focused mostly on
@@ -60,4 +60,4 @@ Links to read more about the inner workings of C2:
 
 Ok. Now that we have discussed some preliminary things, we can get started with the technical material :)
 
-TODO: link to Part 1.
+[Continue with Part 1](https://eme64.github.io/blog/2024/01/01/Intro-to-C2-Part00.html)

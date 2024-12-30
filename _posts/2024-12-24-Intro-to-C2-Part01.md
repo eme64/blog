@@ -8,7 +8,8 @@ and that you have already cloned and built the JDK ([Build the JDK](https://open
 
 In Part 1, we look at:
 - Running a simple Java example.
-- TODO
+- Product vs Debug builds.
+- Tiered Compilation.
 
 TODO link to part 2.
 
@@ -103,6 +104,29 @@ The HotSpot JVM executes your Java code in one of these ways:
 - C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate machine code quickly, which is already much faster than the interpreter. C1 does not optimize the code, because that would take additional time which we do not want to spend at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
 - C2: Once profiling has determined that the code is very hot, we want to generate highly optimized machine code. We are willing to pay the higher compilation time, because we expect the code to be executed a lot in the future. The win of execution time with faster code outweighs the cost of time we spend on optimizations.
 
-Back to our example.
+Back to our example. We saw that `Test::main` was never compiled, thus must have exclusively been executed in the interpreter. `Test::test` is first executed in the interpreter, then is deemed hot enough for a C1 Compilation.
 
+We can force all executions to be run in the interpreter:
+```bash
+$ ./java -XX:CompileCommand=printcompilation,Test::* -Xint Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+Run
+Done
+```
+
+Normally, compilation happens in the background, which means that when a compilation is enqueued, we continue with the old mode of execution until the new compilation is completed.
+The asynchronous behaviour can sometimes make compilation a little unpredictable. It can be beneficial for debugging to disable background compilation with `-Xbatch`:
+```bash
+./java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+Run
+25090 1835    b  3       Test::test (4 bytes)
+25090 1836    b  4       Test::test (4 bytes)
+Done
+```
+We see that the code is now compiled first with C1, and then with C2. We also see that the blocking behaviour has made the execution much slower.
+
+```bash
+TODO
+```
 TODO

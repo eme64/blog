@@ -119,7 +119,7 @@ Done
 Normally, compilation happens in the background, which means that when a compilation is enqueued, we continue with the old mode of execution until the new compilation is completed.
 The asynchronous behaviour can sometimes make compilation a little unpredictable. It can be beneficial for debugging to disable background compilation with `-Xbatch`:
 ```bash
-./java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
+$ ./java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
 25090 1835    b  3       Test::test (4 bytes)

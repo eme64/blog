@@ -7,7 +7,7 @@ Summary:
 - Running a simple Java example.
 - TODO
 
-```
+```java
 public class Test {
     public static void main(String[] args) {
         // Especially with a debug build, the JVM startup can take a while, so it can take

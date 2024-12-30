@@ -4,7 +4,7 @@ date: 2024-12-24
 ---
 
 I assume that you have already looked at [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part01.html),
-and that you have already cloned and built the JDK ([Build the JDK](https://openjdk.org/groups/build/doc/building.html)).
+and that you have already cloned and [build the JDK](https://openjdk.org/groups/build/doc/building.html).
 
 In Part 1, we look at:
 - Running a simple Java example.

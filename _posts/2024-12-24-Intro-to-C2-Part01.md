@@ -11,6 +11,8 @@ In Part 1, we look at:
 - Product vs Debug builds.
 - Tiered Compilation.
 
+Related article by Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
+
 TODO link to part 2.
 
 **Our First Example**

@@ -8,8 +8,10 @@ and that you have already cloned and [build the JDK](https://openjdk.org/groups/
 
 In Part 1, we look at:
 - Running a simple Java example.
+- Compilation to Java bytecode with `javac`.
 - Product vs Debug builds.
 - Tiered Compilation.
+- Inspecting C2 IR and generated assembly code.
 
 Related article by Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
 
@@ -46,6 +48,22 @@ We can run it like this:
 $ ./java Test.java
 Run
 Done
+```
+
+**Compilation of Java code to Java bytecode**
+
+TODO
+
+```bash
+TODO
+```
+
+```bash
+TODO
+```
+
+```bash
+TODO
 ```
 
 **Types of JDK Builds**
@@ -195,7 +213,200 @@ The other nodes are not relevant for us now, and we will come back to some of th
 
 **A first Look at generated Assembly Code**
 
-```bash
 TODO
+
+```bash
+$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+CompileCommand: print Test.test bool print = true
+Run
+8254   85    b        Test::test (4 bytes)
+
+============================= C2-compiled nmethod ==============================
+#r018 rsi   : parm 0: int
+#r016 rdx   : parm 1: int
+# -- Old rsp -- Framesize: 32 --
+#r623 rsp+28: in_preserve
+#r622 rsp+24: return address
+#r621 rsp+20: in_preserve
+#r620 rsp+16: saved fp register
+#r619 rsp+12: pad2, stack alignment
+#r618 rsp+ 8: pad2, stack alignment
+#r617 rsp+ 4: Fixed slot 1
+#r616 rsp+ 0: Fixed slot 0
+#
+----------------------- MetaData before Compile_id = 85 ------------------------
+{method}
+ - this oop:          0x00007fc87d0943c8
+ - method holder:     'Test'
+ - constants:         0x00007fc87d094030 constant pool [36] {0x00007fc87d094030} for 'Test' cache=0x00007fc87d0944d8
+ - access:            0x9  public static 
+ - flags:             0x4080  queued_for_compilation has_loops_flag_init 
+ - name:              'test'
+ - signature:         '(II)I'
+ - max stack:         3
+ - max locals:        2
+ - size of params:    2
+ - method size:       14
+ - vtable index:      -2
+ - i2i entry:         0x00007fc8ac3ecf00
+ - adapters:          AHE@0x00007fc8a8238520: 0xaa i2c: 0x00007fc8ac454380 c2i: 0x00007fc8ac45445e c2iUV: 0x00007fc8ac45443d c2iNCI: 0x00007fc8ac454498
+ - compiled entry     0x00007fc8ac45445e
+ - code size:         4
+ - code start:        0x00007fc87d0943c0
+ - code end (excl):   0x00007fc87d0943c4
+ - method data:       0x00007fc87d094578
+ - checked ex length: 0
+ - linenumber start:  0x00007fc87d0943c4
+ - localvar length:   0
+
+------------------------ OptoAssembly for Compile_id = 85 -----------------------
+#
+#  int ( int, int )
+#
+000     N1: #	out( B1 ) <- in( B1 )  Freq: 1
+
+000     B1: #	out( N1 ) <- BLOCK HEAD IS JUNK  Freq: 1
+000     # stack bang (96 bytes)
+	pushq   rbp	# Save rbp
+	subq    rsp, #16	# Create frame
+
+01a     leal    RAX, [RSI + RDX]
+01d     addq    rsp, 16	# Destroy frame
+	popq    rbp
+	cmpq    rsp, poll_offset[r15_thread] 
+	ja      #safepoint_stub	# Safepoint: poll for GC
+
+02c     ret
+
+--------------------------------------------------------------------------------
+----------------------------------- Assembly -----------------------------------
+
+Compiled method (c2) 8266   85             Test::test (4 bytes)
+ total in heap  [0x00007fc8ac567888,0x00007fc8ac5679f8] = 368
+ relocation     [0x00007fc8ac567970,0x00007fc8ac567980] = 16
+ main code      [0x00007fc8ac567980,0x00007fc8ac5679d0] = 80
+ stub code      [0x00007fc8ac5679d0,0x00007fc8ac5679e8] = 24
+ oops           [0x00007fc8ac5679e8,0x00007fc8ac5679f0] = 8
+ metadata       [0x00007fc8ac5679f0,0x00007fc8ac5679f8] = 8
+ immutable data [0x00007fc85c085a10,0x00007fc85c085a50] = 64
+ dependencies   [0x00007fc85c085a10,0x00007fc85c085a18] = 8
+ scopes pcs     [0x00007fc85c085a18,0x00007fc85c085a48] = 48
+ scopes data    [0x00007fc85c085a48,0x00007fc85c085a50] = 8
+
+[Disassembly]
+--------------------------------------------------------------------------------
+[Constant Pool (empty)]
+
+--------------------------------------------------------------------------------
+
+[Verified Entry Point]
+  # {method} {0x00007fc87d0943c8} 'test' '(II)I' in 'Test'
+  # parm0:    rsi       = int
+  # parm1:    rdx       = int
+  #           [sp+0x20]  (sp of caller)
+ ;; N1: #	out( B1 ) <- in( B1 )  Freq: 1
+ ;; B1: #	out( N1 ) <- BLOCK HEAD IS JUNK  Freq: 1
+  0x00007fc8ac567980:   mov    %eax,-0x18000(%rsp)
+  0x00007fc8ac567987:   push   %rbp
+  0x00007fc8ac567988:   sub    $0x10,%rsp
+  0x00007fc8ac56798c:   cmpl   $0x0,0x20(%r15)
+  0x00007fc8ac567994:   jne    0x00007fc8ac5679c3           ;*synchronization entry
+                                                            ; - Test::test@-1 (line 17)
+  0x00007fc8ac56799a:   lea    (%rsi,%rdx,1),%eax
+  0x00007fc8ac56799d:   add    $0x10,%rsp
+  0x00007fc8ac5679a1:   pop    %rbp
+  0x00007fc8ac5679a2:   cmp    0x28(%r15),%rsp              ;   {poll_return}
+  0x00007fc8ac5679a6:   ja     0x00007fc8ac5679ad
+  0x00007fc8ac5679ac:   retq   
+  0x00007fc8ac5679ad:   movabs $0x7fc8ac5679a2,%r10         ;   {internal_word}
+  0x00007fc8ac5679b7:   mov    %r10,0x498(%r15)
+  0x00007fc8ac5679be:   jmpq   0x00007fc8ac500760           ;   {runtime_call SafepointBlob}
+  0x00007fc8ac5679c3:   callq  Stub::nmethod_entry_barrier  ;   {runtime_call StubRoutines (final stubs)}
+  0x00007fc8ac5679c8:   jmpq   0x00007fc8ac56799a
+  0x00007fc8ac5679cd:   hlt    
+  0x00007fc8ac5679ce:   hlt    
+  0x00007fc8ac5679cf:   hlt    
+[Exception Handler]
+  0x00007fc8ac5679d0:   jmpq   0x00007fc8ac500c60           ;   {no_reloc}
+[Deopt Handler Code]
+  0x00007fc8ac5679d5:   callq  0x00007fc8ac5679da
+  0x00007fc8ac5679da:   subq   $0x5,(%rsp)
+  0x00007fc8ac5679df:   jmpq   0x00007fc8ac501ba0           ;   {runtime_call DeoptimizationBlob}
+  0x00007fc8ac5679e4:   hlt    
+  0x00007fc8ac5679e5:   hlt    
+  0x00007fc8ac5679e6:   hlt    
+  0x00007fc8ac5679e7:   hlt    
+--------------------------------------------------------------------------------
+[/Disassembly]
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Oops:
+  0x00007fc8ac5679e8:   0x00000006357f0c98 a 'com/sun/tools/javac/launcher/MemoryClassLoader'{0x00000006357f0c98}
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Metadata:
+  0x00007fc8ac5679f0:   0x00007fc87d0943c8 {method} {0x00007fc87d0943c8} 'test' '(II)I' in 'Test'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+pc-bytecode offsets:
+PcDesc(pc=0x00007fc8ac56797f offset=ffffffff bits=0):
+PcDesc(pc=0x00007fc8ac56799a offset=1a bits=0):
+   Test::test@-1 (line 17)
+PcDesc(pc=0x00007fc8ac5679e9 offset=69 bits=0):
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+oop maps:ImmutableOopMapSet contains 0 OopMaps
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+scopes:
+ScopeDesc(pc=0x00007fc8ac56799a offset=1a):
+   Test::test@-1 (line 17)
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+relocations:
+         @0x00007fc8ac567970: 5822
+relocInfo@0x00007fc8ac567970 [type=11(poll_return) addr=0x00007fc8ac5679a2 offset=34]
+         @0x00007fc8ac567972: 780b400b
+relocInfo@0x00007fc8ac567974 [type=8(internal_word) addr=0x00007fc8ac5679ad offset=11 data=11] | [target=0x00007fc8ac5679a2]
+         @0x00007fc8ac567976: 3111
+relocInfo@0x00007fc8ac567976 [type=6(runtime_call) addr=0x00007fc8ac5679be offset=17 format=1] | [destination=0x00007fc8ac500760]
+         @0x00007fc8ac567978: 3105
+relocInfo@0x00007fc8ac567978 [type=6(runtime_call) addr=0x00007fc8ac5679c3 offset=5 format=1] | [destination=0x00007fc8ac45ece0]
+         @0x00007fc8ac56797a: 000d
+relocInfo@0x00007fc8ac56797a [type=0(none) addr=0x00007fc8ac5679d0 offset=13]
+         @0x00007fc8ac56797c: 3100
+relocInfo@0x00007fc8ac56797c [type=6(runtime_call) addr=0x00007fc8ac5679d0 offset=0 format=1] | [destination=0x00007fc8ac500c60]
+         @0x00007fc8ac56797e: 310f
+relocInfo@0x00007fc8ac56797e [type=6(runtime_call) addr=0x00007fc8ac5679df offset=15 format=1] | [destination=0x00007fc8ac501ba0]
+         @0x00007fc8ac567980: 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Dependencies:
+Dependency of type evol_method
+  method  = *{method} {0x00007fc87d0943c8} 'test' '(II)I' in 'Test'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+ExceptionHandlerTable (size = 0 bytes)
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+ImplicitExceptionTable is empty
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Recorded oops:
+#0: 0x0000000000000000 nullptr-oop
+#1: 0x00000006357f0c98 a 'com/sun/tools/javac/launcher/MemoryClassLoader'{0x00000006357f0c98}
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Recorded metadata:
+#0: 0x0000000000000000 nullptr-oop
+#1: 0x00007fc87d0943c8 {method} {0x00007fc87d0943c8} 'test' '(II)I' in 'Test'
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Done
+------------------------------------------------------------------------
+static Test::test(II)I
+  interpreter_invocation_count:        6784
+  invocation_counter:                  6784
+  backedge_counter:                       0
+  decompile_count:                        0
+  mdo size: 384 bytes
+
+   0 iload_0
+   1 iload_1
+   2 iadd
+   3 ireturn
+------------------------------------------------------------------------
+Total MDO size: 384 bytes
 ```
 

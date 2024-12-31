@@ -96,7 +96,7 @@ Run
 Done
 ```
 
-**Tiered Compilation**
+**Tiered Compilation, VM flags to control compilation**
 
 In our execution above, we notice that from our `Test.java` only `Test::test` was ever compiled, and only with C1 (tier 1, 2, or 3).
 But we obviously are also running `Test::main`, so why does that method not get compiled?
@@ -127,8 +127,41 @@ Run
 Done
 ```
 We see that the code is now compiled first with C1, and then with C2. We also see that the blocking behaviour has made the execution much slower.
+This is because the VM now blocks the execution any time a compilation needs to be made - and not just in our `Test` class but also during the JVM startup.
+
+It can be useful to limit the compilation to some classes or methods:
+```bash
+$ ./java -XX:CompileCommand=printcompilation,Test::* -Xbatch -XX:CompileCommand=compileonly,Test::test Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+Run
+7680   85    b  3       Test::test (4 bytes)
+7680   86    b  4       Test::test (4 bytes)
+Done
+```
+
+With `-XX:-TieredCompilation`, we can disable tiered compilation, and only C2 is used:
+```bash
+$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+Run
+8236   85    b        Test::test (4 bytes)
+Done
+```
+
+Alternatively, we can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
+```bash
+$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:TieredStopAtLevel=3 Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+Run
+7580   85    b  3       Test::test (4 bytes)
+Done
+```
+
+**Looking at generated Assembly Code**
 
 ```bash
 TODO
 ```
-TODO

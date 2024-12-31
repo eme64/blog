@@ -160,8 +160,42 @@ Run
 Done
 ```
 
-**Looking at generated Assembly Code**
+**A first Look at C2 IR**
+
+With `-XX:+PrintIdeal`, we can display the C2 IR (internal representation) after most optimizations are done, and before code generation:
+```bash
+$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+Run
+8211   85    b        Test::test (4 bytes)
+AFTER: print_ideal
+  0  Root  === 0 24  [[ 0 1 3 ]] inner 
+  3  Start  === 3 0  [[ 3 5 6 7 8 9 10 11 ]]  #{0:control, 1:abIO, 2:memory, 3:rawptr:BotPTR, 4:return_address, 5:int, 6:int}
+  5  Parm  === 3  [[ 24 ]] Control !jvms: Test::test @ bci:-1 (line 17)
+  6  Parm  === 3  [[ 24 ]] I_O !jvms: Test::test @ bci:-1 (line 17)
+  7  Parm  === 3  [[ 24 ]] Memory  Memory: @BotPTR *+bot, idx=Bot; !jvms: Test::test @ bci:-1 (line 17)
+  8  Parm  === 3  [[ 24 ]] FramePtr !jvms: Test::test @ bci:-1 (line 17)
+  9  Parm  === 3  [[ 24 ]] ReturnAdr !jvms: Test::test @ bci:-1 (line 17)
+ 10  Parm  === 3  [[ 23 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
+ 11  Parm  === 3  [[ 23 ]] Parm1: int !jvms: Test::test @ bci:-1 (line 17)
+ 23  AddI  === _ 10 11  [[ 24 ]]  !jvms: Test::test @ bci:2 (line 17)
+ 24  Return  === 5 6 7 8 9 returns 23  [[ 0 ]] 
+Done
+```
+This represents our Java code from the example:
+```java
+    public static int test(int a, int b) {
+        return a + b;
+    }
+```
+Let's look at it backwards: we have a `return` statement, that returns the `+` (addition) of two method parameters `a` and `b`.
+We can find the same steps in the IR from `-XX:+PrintIdeal`: `24 Return` returns the value received from IR node `23 AddI`. `23 AddI` adds the two parameters `10 Param` and `11 Param`.
+The other nodes are not relevant for us now, and we will come back to some of them at a later point.
+
+**A first Look at generated Assembly Code**
 
 ```bash
 TODO
 ```
+

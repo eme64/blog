@@ -17,7 +17,7 @@ Related articles:
 - By Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
 - By Chris Newland [Developers disassemble! Use Java and hsdis to see it all.](https://blogs.oracle.com/javamagazine/post/java-hotspot-hsdis-disassembler)
 
-TODO link to part 2.
+[Skip forward to Part 2](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part02.md)
 
 **Our First Example**
 

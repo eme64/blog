@@ -79,13 +79,60 @@ We can see that the compilation indeed was simplified to `303 * a + 53 * b`. How
 We can see that the annotations on the right indicate that the code originates from both `Test::test` and `Test::testHelper`.
 Hence, we can conclude that the `Test::testHelper` code was inlined into the compilation of `Test::test`.
 
+We confirm this with the `PrintInliing` flag:
 ```bash
-TODO
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+CompileCommand: PrintInlining Test.test bool PrintInlining = true
+Run
+8233   85    b        Test::test (22 bytes)
+                            @ 3   Test::testHelper (4 bytes)   inline (hot)
+                            @ 10   Test::testHelper (4 bytes)   inline (hot)
+                            @ 17   Test::testHelper (4 bytes)   inline (hot)
+Done
+```
+We see that the `testHelper` is inlined 3 times (at bytecodes 3, 10 and 17 of `test`).
+
+We can explicitly disable inlining:
+```bash
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:CompileCommand=dontinline,Test::* Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+CompileCommand: PrintInlining Test.test bool PrintInlining = true
+CompileCommand: dontinline Test.* bool dontinline = true
+Run
+8263   85    b        Test::test (22 bytes)
+                            @ 3   Test::testHelper (4 bytes)   failed to inline: disallowed by CompileCommand
+                            @ 10   Test::testHelper (4 bytes)   failed to inline: disallowed by CompileCommand
+                            @ 17   Test::testHelper (4 bytes)   failed to inline: disallowed by CompileCommand
+Done
 ```
 
-```bash
-TODO
+The corresponding IR is now complex, because instead of inlining the code, we have 3 calls to `testHelper`. I simplified the graph a little:
+
+![image](https://github.com/user-attachments/assets/08ac97bc-59b1-4a07-ad53-3a6255833ec2)
+
+We can see the light-blue `ConI`, which pass the arguments 101, 202, and 53 into the `CallStaticJava`, which call `testHelper`.
+After the calls, we must check for exceptions - since we are not inlining the method we cannot know that it does never throw an exception.
+The green `Proj` nodes take the return values of the calls, and lead into the `AddI` which sum up the return value.
+The `Catch`, `CatchProj` and `CreateEx` lead to the `Rethrow`, which is taken if there was an exception.
+If there is no exception, we take the path to the next `CallStaticJava`, and eventually to `Return`.
+
+This all looks a little complicated, but you do not need to understand it all yet. We will look at simpler examples with control-flow later.
+Often the IR can look quite complicated, and it takes a while to understand all the nodes.
+
+Ok, now we have seen that inlining gets us from:
+```java
+return testHelper(101, a) + testHelper(202, a) + testHelper(53, b);
+// to
+return 101 * a + 202 * a + 53 * b;
 ```
+But how do we get to `303 * a + 53 * b`?
+
+**Using the RR Debugger**
+
+TODO
 
 [Continue with Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
 

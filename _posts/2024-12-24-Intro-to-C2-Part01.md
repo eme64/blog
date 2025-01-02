@@ -13,7 +13,9 @@ In Part 1, we look at:
 - Tiered Compilation.
 - Inspecting C2 IR and generated assembly code.
 
-Related article by Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
+Related articles:
+- By Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
+- By Chris Newland [Developers disassemble! Use Java and hsdis to see it all.](https://blogs.oracle.com/javamagazine/post/java-hotspot-hsdis-disassembler)
 
 TODO link to part 2.
 
@@ -263,8 +265,7 @@ The other nodes are not relevant for us now, and we will come back to some of th
 
 **A first Look at generated Assembly Code**
 
-TODO
-
+With `-XX:CompileCommand=print,Test::test` we can print a lot of interesting information from the compilation:
 ```bash
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -460,3 +461,94 @@ static Test::test(II)I
 Total MDO size: 384 bytes
 ```
 
+Let us look at a few details.
+```
+#r018 rsi   : parm 0: int
+#r016 rdx   : parm 1: int
+```
+We see that the two int arguments are compiled to be in the CPU registers `rsi` and `rdx`. This will be interesting when looking at the assembly.
+Let us first look at the `OptoAssembly`, which is an intermediate assembly-like form before machine-code generation:
+```
+------------------------ OptoAssembly for Compile_id = 85 -----------------------
+#
+#  int ( int, int )
+#
+000     N1: #	out( B1 ) <- in( B1 )  Freq: 1
+
+000     B1: #	out( N1 ) <- BLOCK HEAD IS JUNK  Freq: 1
+000     # stack bang (96 bytes)
+	pushq   rbp	# Save rbp
+	subq    rsp, #16	# Create frame
+
+01a     leal    RAX, [RSI + RDX]
+01d     addq    rsp, 16	# Destroy frame
+	popq    rbp
+	cmpq    rsp, poll_offset[r15_thread] 
+	ja      #safepoint_stub	# Safepoint: poll for GC
+
+02c     ret
+```
+The important instructions to look at here are:
+- `leal    RAX, [RSI + RDX]`: basically does `rax = rsi + rdx`, i.e. it adds the two method arguments.
+- `ret` returns the value in `rax`.
+
+The other instructions all have to do with maintaining the stack-frames, and performing a safepoint-poll.
+
+We find the actual `x64` machine code in a later block:
+```
+[Verified Entry Point]
+  # {method} {0x00007fc87d0943c8} 'test' '(II)I' in 'Test'
+  # parm0:    rsi       = int
+  # parm1:    rdx       = int
+  #           [sp+0x20]  (sp of caller)
+ ;; N1: #	out( B1 ) <- in( B1 )  Freq: 1
+ ;; B1: #	out( N1 ) <- BLOCK HEAD IS JUNK  Freq: 1
+  0x00007fc8ac567980:   mov    %eax,-0x18000(%rsp)
+  0x00007fc8ac567987:   push   %rbp
+  0x00007fc8ac567988:   sub    $0x10,%rsp
+  0x00007fc8ac56798c:   cmpl   $0x0,0x20(%r15)
+  0x00007fc8ac567994:   jne    0x00007fc8ac5679c3           ;*synchronization entry
+                                                            ; - Test::test@-1 (line 17)
+  0x00007fc8ac56799a:   lea    (%rsi,%rdx,1),%eax
+  0x00007fc8ac56799d:   add    $0x10,%rsp
+  0x00007fc8ac5679a1:   pop    %rbp
+  0x00007fc8ac5679a2:   cmp    0x28(%r15),%rsp              ;   {poll_return}
+  0x00007fc8ac5679a6:   ja     0x00007fc8ac5679ad
+  0x00007fc8ac5679ac:   retq   
+  0x00007fc8ac5679ad:   movabs $0x7fc8ac5679a2,%r10         ;   {internal_word}
+  0x00007fc8ac5679b7:   mov    %r10,0x498(%r15)
+  0x00007fc8ac5679be:   jmpq   0x00007fc8ac500760           ;   {runtime_call SafepointBlob}
+  0x00007fc8ac5679c3:   callq  Stub::nmethod_entry_barrier  ;   {runtime_call StubRoutines (final stubs)}
+  0x00007fc8ac5679c8:   jmpq   0x00007fc8ac56799a
+  0x00007fc8ac5679cd:   hlt    
+  0x00007fc8ac5679ce:   hlt    
+  0x00007fc8ac5679cf:   hlt    
+[Exception Handler]
+  0x00007fc8ac5679d0:   jmpq   0x00007fc8ac500c60           ;   {no_reloc}
+[Deopt Handler Code]
+  0x00007fc8ac5679d5:   callq  0x00007fc8ac5679da
+  0x00007fc8ac5679da:   subq   $0x5,(%rsp)
+  0x00007fc8ac5679df:   jmpq   0x00007fc8ac501ba0           ;   {runtime_call DeoptimizationBlob}
+```
+You may have to install the `hsdis` disassembler, otherwise you will only see bytes here
+(see
+[this blog-post](https://blogs.oracle.com/javamagazine/post/java-hotspot-hsdis-disassembler)
+and
+[this wiki](https://wiki.openjdk.org/display/HotSpot/PrintAssembly)
+).
+
+This is now more verbose, but also represents directly what happens on the CPU. Again, the most relevant instructions are:
+- `lea    (%rsi,%rdx,1),%eax`
+- `retq`
+
+Somewhere at the end, we find the bytecode again:
+```
+   0 iload_0
+   1 iload_1
+   2 iadd
+   3 ireturn
+```
+
+I encourage you to take this example, and play around a little with it. See how changes to the `Test::test` method affect the compiled bytecode, and the compiled assembly code.
+
+[Continue with Part 2](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part02.md)

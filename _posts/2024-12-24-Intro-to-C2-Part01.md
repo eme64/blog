@@ -552,3 +552,17 @@ Somewhere at the end, we find the bytecode again:
 I encourage you to take this example, and play around a little with it. See how changes to the `Test::test` method affect the compiled bytecode, and the compiled assembly code.
 
 [Continue with Part 2](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part02.md)
+
+**Please leave a comment below**
+
+To edit/delete a comment: click on the `date` above your comment, e.g. `just now` or `5 minutes ago`.
+This takes you to the GitHub issue page associated with this blog post. Find your comment, and edit/delete it
+by clicking the three dots `...` on the top right.
+
+<script src="https://utteranc.es/client.js"
+        repo="eme64/blog"
+        issue-term="pathname"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script>

@@ -17,7 +17,7 @@ Related articles:
 - By Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
 - By Chris Newland [Developers disassemble! Use Java and hsdis to see it all.](https://blogs.oracle.com/javamagazine/post/java-hotspot-hsdis-disassembler)
 
-[Skip forward to Part 2](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part02.md)
+[Skip forward to Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html)
 
 **Our First Example**
 
@@ -551,7 +551,7 @@ Somewhere at the end, we find the bytecode again:
 
 I encourage you to take this example, and play around a little with it. See how changes to the `Test::test` method affect the compiled bytecode, and the compiled assembly code.
 
-[Continue with Part 2](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part02.md)
+[Continue with Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html)
 
 **Please leave a comment below**
 

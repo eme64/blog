@@ -3,7 +3,7 @@ title: "Introduction to HotSpot JVM C2 JIT Compiler, Part 1"
 date: 2024-12-24
 ---
 
-I assume that you have already looked at [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part01.html),
+I assume that you have already looked at [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part00.html),
 and that you have already cloned and [build the JDK](https://openjdk.org/groups/build/doc/building.html).
 
 In Part 1, we look at:
@@ -45,26 +45,76 @@ public class Test {
 We can run it like this:
 
 ```bash
-$ ./java Test.java
+$ java Test.java
 Run
 Done
 ```
 
 **Compilation of Java code to Java bytecode**
 
-TODO
+Java (and other JVM programming languages) are first compiled to [Java Bytecode](https://en.wikipedia.org/wiki/List_of_Java_bytecode_instructions).
+This bytecode is still platform agnostic, and needs to be executed by the JVM.
+The JVM can interpret the bytecode, or further compile it to platform specific machine code.
 
+We can explicitly compile our test file to bytecode in a class-file:
 ```bash
-TODO
+$ javac Test.java
 ```
 
+This generates a `Test.class`. We can inspect its content:
 ```bash
-TODO
-```
+$ javap -c Test.class
+Compiled from "Test.java"
+public class Test {
+  public Test();
+    Code:
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
 
-```bash
-TODO
+  public static void main(java.lang.String[]);
+    Code:
+         0: getstatic     #7                  // Field java/lang/System.out:Ljava/io/PrintStream;
+         3: ldc           #13                 // String Run
+         5: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+         8: iconst_0
+         9: istore_1
+        10: iload_1
+        11: sipush        10000
+        14: if_icmpge     31
+        17: iload_1
+        18: iload_1
+        19: iconst_1
+        20: iadd
+        21: invokestatic  #21                 // Method test:(II)I
+        24: pop
+        25: iinc          1, 1
+        28: goto          10
+        31: getstatic     #7                  // Field java/lang/System.out:Ljava/io/PrintStream;
+        34: ldc           #27                 // String Done
+        36: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        39: return
+
+  public static int test(int, int);
+    Code:
+         0: iload_0
+         1: iload_1
+         2: iadd
+         3: ireturn
+}
 ```
+For now, you do not need to understand this code. We see that there are 3 methods defined in the `Test` class:
+- `<init>`: This is the code of the default constructor, which calls the super-class `Object` constructor.
+- `main`:  We see some `invokevirtual` for `println`, an `invokestatic` for `test`, and a `goto 10` for the loop backedge.
+- `test`: The two `int` arguments are put into registers `0` and `1`. The `iload_0` and `iload_1` take those arguments from the registers, and push them onto the stack. `iadd` takes the two values from the stack, and puts their addition back on the stack. `ireturn` pops that value off the stack again, and returns it.
+
+If you are interested to learn more about Java Bytecode:
+- [Java Bytecode (Wikipedia)](https://en.wikipedia.org/wiki/List_of_Java_bytecode_instructions): helpful reference for all the bytecodes.
+- [asmtools](https://github.com/openjdk/asmtools): tool to assemble / disassemble class-files. When I am working on a bug where I am only provided a class-file, I often inspect the class-file with `jdis`, modify it, and compile it again with `jasm`. That way I can often even reconstruct the reproducer with Java code eventually.
+
+Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class-file.
+
+Note 2: `.jar` files are simply a zip-directory of various `.class` files.
 
 **Types of JDK Builds**
 
@@ -80,7 +130,7 @@ I tend to work with fastdebug by default, but then switch to slowdebug if GDB / 
 Let us now continue with the example, and inspect which methods are compiled:
 
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,*::* Test.java
+$ java -XX:CompileCommand=printcompilation,*::* Test.java
 CompileCommand: PrintCompilation *.* bool PrintCompilation = true
 360    1       3       java.lang.Byte::toUnsignedInt (6 bytes)
 363    2       3       java.lang.Object::<init> (1 bytes)
@@ -107,7 +157,7 @@ Usually, we are only interested in the compilations of certain classes, here of 
 We can limit for which classes we enable `printcompilation`:
 
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
 10405 1983       3       Test::test (4 bytes)
@@ -128,7 +178,7 @@ Back to our example. We saw that `Test::main` was never compiled, thus must have
 
 We can force all executions to be run in the interpreter:
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -Xint Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -Xint Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
 Done
@@ -137,7 +187,7 @@ Done
 Normally, compilation happens in the background, which means that when a compilation is enqueued, we continue with the old mode of execution until the new compilation is completed.
 The asynchronous behaviour can sometimes make compilation a little unpredictable. It can be beneficial for debugging to disable background compilation with `-Xbatch`:
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
 25090 1835    b  3       Test::test (4 bytes)
@@ -149,7 +199,7 @@ This is because the VM now blocks the execution any time a compilation needs to 
 
 It can be useful to limit the compilation to some classes or methods:
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -Xbatch -XX:CompileCommand=compileonly,Test::test Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -Xbatch -XX:CompileCommand=compileonly,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
 Run
@@ -160,7 +210,7 @@ Done
 
 With `-XX:-TieredCompilation`, we can disable tiered compilation, and only C2 is used:
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
 Run
@@ -170,7 +220,7 @@ Done
 
 Alternatively, we can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:TieredStopAtLevel=3 Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:TieredStopAtLevel=3 Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
 Run
@@ -182,7 +232,7 @@ Done
 
 With `-XX:+PrintIdeal`, we can display the C2 IR (internal representation) after most optimizations are done, and before code generation:
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
 Run
@@ -216,7 +266,7 @@ The other nodes are not relevant for us now, and we will come back to some of th
 TODO
 
 ```bash
-$ ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
 CompileCommand: print Test.test bool print = true

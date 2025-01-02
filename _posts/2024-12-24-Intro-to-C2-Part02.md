@@ -10,11 +10,11 @@ I assume that you have already looked at
 In Part 2, we look at:
 - TODO
 
-[Skip forward to Part 3](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part03.md)
+[Skip forward to Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
 
 TODO
 
-[Continue with Part 3](https://github.com/eme64/blog/edit/main/_posts/2024-12-24-Intro-to-C2-Part03.md)
+[Continue with Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
 
 **Please leave a comment below**
 

@@ -5,119 +5,120 @@ date: 2025-01-01
 
 TODO
 
-<style>
-universe {
-  position: absolute;
-}
-myelement {
-  position: absolute;
-  width: 400px;
-  height: 20px;
-}
-</style>
-
-<div id="issue_graph"></div>
+<iframe id = "issue_graph" height="800" width="100%" resize="both" overflow="auto">
+</iframe>
 
 <script>
-maxX = 100;
-maxY = 100;
+  maxX = 100;
+  maxY = 100;
 
-issues = {}
+  issues = {}
 
-function updateMax(x,y) {
-  maxX = Math.max(maxX,x);
-  maxY = Math.max(maxY,y);
-}
+  graph_document = undefined;
 
-function updateCanvas(overFocusId) {
-  var universe = document.getElementById("universe")
-  var canv = document.getElementById("mainCanvas")
-  canv.width = maxX + 405;
-  canv.height = maxY + 25;
+  function updateMax(x,y) {
+    maxX = Math.max(maxX,x);
+    maxY = Math.max(maxY,y);
+  }
 
-  var ctx = canv.getContext("2d");
-  ctx.clearRect(0, 0, canv.width, canv.height);
-  ctx.rect(0, 0, canv.width, canv.height);
-  ctx.fillStyle = "#eeeeee";
-  ctx.fill();
+  function updateCanvas(overFocusId) {
+    var universe = graph_document.getElementById("universe")
+    var canv = graph_document.getElementById("mainCanvas")
+    canv.width = maxX + 405;
+    canv.height = maxY + 25;
 
-  console.log("update");
-  for (issue of issues) {
-    var div = issue.div;
-    
-    if (overFocusId==div.id) {
-      div.style.border = "solid #000000";
-      console.log("over " + div.id);
-    } else {
-      div.style.border = "";
+    var ctx = canv.getContext("2d");
+    ctx.clearRect(0, 0, canv.width, canv.height);
+    ctx.rect(0, 0, canv.width, canv.height);
+    ctx.fillStyle = "#eeeeee";
+    ctx.fill();
+
+    console.log("update");
+    for (issue of issues) {
+      var div = issue.div;
+
+      if (overFocusId==div.id) {
+        div.style.border = "solid #000000";
+        console.log("over " + div.id);
+      } else {
+        div.style.border = "";
+      }
     }
   }
-}
 
-function addIssue(issue) {
-  var universe = document.getElementById("universe")
-  var div = document.createElement("myelement");
-  div.style.background = "#ffffff";
-  div.style.color = "black";
-  div.innerHTML = "<a href='https://bugs.openjdk.org/browse/" + issue.name
-                  + "' style='font-size:14px' target='_blank'>"
-                  + issue.name + ": " + issue.desc + "</a>";
-  if (issue.pr != "") {
-    div.innerHTML += " <a href='" + issue.pr
-                     + "' style='font-size:14px' target='_blank'>[PR]</a>";
+  function addIssue(issue) {
+    var universe = graph_document.getElementById('universe')
+    universe.style.position = "absolute";
+    var div = graph_document.createElement("myelement");
+    div.style.position = "absolute";
+    div.style.width = "400px";
+    div.style.height = "20px";
+    div.style.background = "#ffffff";
+    div.style.color = "black";
+    div.innerHTML = "<a href='https://bugs.openjdk.org/browse/" + issue.name
+                    + "' style='font-size:14px' target='_blank'>"
+                    + issue.name + ": " + issue.desc + "</a>";
+    if (issue.pr != "") {
+      div.innerHTML += " <a href='" + issue.pr
+                       + "' style='font-size:14px' target='_blank'>[PR]</a>";
+    }
+
+    div.style.left = issue.x+"px";
+    div.style.top  = issue.y+"px";
+    updateMax(issue.x, issue.y);
+
+    div.id = issue.name;
+    universe.appendChild(div);
+
+    div.onmouseover = function() {mouseOverIssue(div.id);}
+
+    return div;
   }
 
-  div.style.left = issue.x+"px";
-  div.style.top  = issue.y+"px";
-  updateMax(issue.x, issue.y);
-
-  div.id = issue.name;
-  universe.appendChild(div);
-
-  div.onmouseover = function() {mouseOverIssue(div.id);}
-
-  return div;
-}
-
-function mouseOverIssue(id) {
-  updateCanvas(id);
-}
-
-function init() {
-  var universe =  document.createElement('universe');
-  universe.id = "universe"
-  graph_div = document.getElementById("issue_graph")
-  graph_div.appendChild(universe);
-
-  var canv = document.createElement('canvas');
-  canv.id = 'mainCanvas';
-  universe.appendChild(canv);
-
-  issues = [
-    {name: "JDK-8346993",
-     desc:"Refactor VectorNode::make",
-     pr: "https://github.com/openjdk/jdk/pull/22917",
-     x: 10, y: 10, type: "review"},
-    {name: "JDK-8343685",
-     desc:"Revactor VPointer with MemPointer",
-     pr: "https://github.com/openjdk/jdk/pull/21926",
-     x: 910, y: 950, type: "open"},
-    //{name: "JDK-",
-    // desc:"",
-    // pr: "https://github.com/openjdk/jdk/pull/",
-    // jira: "https://bugs.openjdk.org/browse/JDK-",
-    // x: 10, y: 20, type: "open"},
-  ];
-
-  for (issue of issues) {
-    div = addIssue(issue)
-    issue.div = div;
+  function mouseOverIssue(id) {
+    updateCanvas(id);
   }
 
-  updateCanvas()
-}
+  function init() {
+    var graph_frame = document.getElementById("issue_graph")
+    graph_document = graph_frame.contentWindow.document
 
-init()  
+    var div = graph_document.createElement("div");
+    graph_document.body.appendChild(div);
+
+    var universe =  graph_document.createElement('universe');
+    universe.id = "universe"
+    div.appendChild(universe);
+
+    var canv = graph_document.createElement('canvas');
+    canv.id = 'mainCanvas';
+    universe.appendChild(canv);
+
+    issues = [
+      {name: "JDK-8346993",
+       desc:"Refactor VectorNode::make",
+       pr: "https://github.com/openjdk/jdk/pull/22917",
+       x: 10, y: 10, type: "review"},
+      {name: "JDK-8343685",
+       desc:"Revactor VPointer with MemPointer",
+       pr: "https://github.com/openjdk/jdk/pull/21926",
+       x: 910, y: 950, type: "open"},
+      //{name: "JDK-",
+      // desc:"",
+      // pr: "https://github.com/openjdk/jdk/pull/",
+      // jira: "https://bugs.openjdk.org/browse/JDK-",
+      // x: 10, y: 20, type: "open"},
+    ];
+
+    for (issue of issues) {
+      div = addIssue(issue)
+      issue.div = div;
+    }
+
+    updateCanvas()
+  }
+
+  init()
 </script>
 
 TODO

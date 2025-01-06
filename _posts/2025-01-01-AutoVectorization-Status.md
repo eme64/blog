@@ -18,7 +18,7 @@ myelement {
 
 <div id="issue_graph"></div>
 
-<script src="graph_script.js"></script>
+<script src="https://raw.githubusercontent.com/eme64/blog/refs/heads/main/_posts/graph_script.js"></script>
 
 TODO
 

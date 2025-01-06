@@ -16,6 +16,8 @@ myelement {
 }
 </style>
 
+<div id="issue_graph"></div>
+
 <script src="graph_script.js"></script>
 
 TODO

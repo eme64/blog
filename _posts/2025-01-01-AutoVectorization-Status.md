@@ -10,6 +10,12 @@ TODO
 </iframe>
 
 <script>
+
+  gp_inner = document.getElementById(".inner");
+  if (gp_inner !== null) {
+    gp_inner["may-width"] = "100%";
+  }
+
   maxX = 100;
   maxY = 100;
 

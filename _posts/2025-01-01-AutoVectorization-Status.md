@@ -13,7 +13,9 @@ TODO
 
   gp_inner = document.getElementById(".wrapper");
   if (gp_inner !== null) {
-    gp_inner["may-width"] = "100%";
+    gp_inner["max-width"] = "100%";
+  } else {
+    console.log("wrapper not found.");
   }
 
   maxX = 100;

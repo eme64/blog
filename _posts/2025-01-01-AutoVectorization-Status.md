@@ -5,6 +5,12 @@ date: 2025-01-01
 
 I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal is to help myself and others understand the different improvements and their dependencies.
 
+Legend:
+- Blue: RFE
+- Red: Bug
+- Gray: Future Work (RFE)
+- Orange: Priority
+
 <p>Navigate: [+/-] Zoom, [F] toggle Fullscreen</p>
 <iframe id = "issue_graph" height="800px" width="100%" resize="both" overflow="auto">
 </iframe>

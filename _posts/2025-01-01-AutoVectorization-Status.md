@@ -61,6 +61,13 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
             ctx.strokeStyle = edge.color;
             ctx.stroke();
             break;
+          case "after":
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.bezierCurveTo(x1, y2, x2, y1, x2, y2);
+            ctx.strokeStyle = edge.color;
+            ctx.stroke();
+            break;
           default:
             console.log("edge style not handled: " + edge.style);
         }
@@ -198,7 +205,7 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
     var rfe_review = {dot: "#0000ff", background: "#bbbbff", highlight: "#aaaaff"}
     var rfe_done   = {dot: "#9999ff", background: "#eeeeff", highlight: "#ddddff"}
 
-    var priority   = {dot: "#ff9900", background: "#ffeecc", highlight: "#ffffdd"}
+    var priority   = {dot: "#ff9900", background: "#ffddbb", highlight: "#ffeedd"}
     //var rfe_green   = {dot: "#00ff00", background: "#ccffcc", highlight: "#ddffdd"}
 
     var x = 0;
@@ -616,12 +623,19 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          x: x, y: y, color: rfe_review, radius: 5,
                          edges: []};
     y += 25;
+    issues["8343597"] = {desc:"RelaxedMath for faster float reductions",
+                         assigned:"Emanuel",
+                         jdk: 0,
+                         pr: "https://github.com/openjdk/jdk/pull/21895",
+                         x: x, y: y, color: rfe_open, radius: 5,
+                         edges: []};
+    y += 700;
     issues["8307516"] = {desc:"Rework reduction heuristic (cost-model)",
                          assigned:"Emanuel",
                          jdk: 0,
                          pr: "",
-                         x: x, y: y, color: rfe_open, radius: 5,
-                         edges: []};
+                         x: x, y: y, color: priority, radius: 5,
+                         edges: [{style: "after", name: "8340093", color: "orange"}]};
     y += 25;
     issues["8345044"] = {desc:"Report: simple sum does not vectorize",
                          assigned:"Galder",
@@ -643,13 +657,6 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          pr: "",
                          x: x+20, y: y, color: rfe_open, radius: 3,
                          edges: [{style: "parent", name: "8307516", color: "black"}]};
-    y += 25;
-    issues["8343597"] = {desc:"RelaxedMath for faster float reductions",
-                         assigned:"Emanuel",
-                         jdk: 0,
-                         pr: "https://github.com/openjdk/jdk/pull/21895",
-                         x: x, y: y, color: rfe_open, radius: 5,
-                         edges: []};
     y += 25;
     issues["8305707"] = {desc:"Vectorize reverse-order reductions",
                          assigned:"Emanuel",
@@ -716,7 +723,14 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          x: x, y: y, color: rfe_open, radius: 5,
                          edges: []};
 
-    y += 25;
+    y += 750;
+    issues["8347116"] = {desc:"If-Conversion",
+                         assigned:"Emanuel",
+                         jdk: 0,
+                         pr: "",
+                         x: x, y: y, color: priority, radius: 5,
+                         edges: [{style: "after", name: "8340093", color: "orange"}]};
+
 
 
     // -------------------------- Alignment / AlignVector
@@ -811,21 +825,23 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          edges: [{style: "parent", name: "8325155", color: "blue"}]};
     y += 25;
 
-    issues["8323582"] = {desc:"AlignVector misaligned native memory",
-                         assigned:"Emanuel",
-                         jdk: 0,
-                         pr: "https://github.com/openjdk/jdk/pull/22016",
-                         x: x, y: y, color: bug_open, radius: 5,
-                         edges: []};
-    y += 25;
     issues["8344424"] = {desc:"Some loop do not vectorize after Lilliput",
                          assigned:"-",
                          jdk: 0,
                          pr: "",
                          x: x, y: y, color: bug_open, radius: 3,
                          edges: []};
-    y += 25;
 
+    y += 100;
+    issues["8323582"] = {desc:"AlignVector misaligned native memory",
+                         assigned:"Emanuel",
+                         jdk: 0,
+                         pr: "https://github.com/openjdk/jdk/pull/22016",
+                         x: x, y: y, color: bug_open, radius: 5,
+                         edges: [{style: "after", name: "8343685", color: "orange"}]};
+    tags.push({text: "Multi-version: runtime check for alignment. Infrastructure can then be used for Aliasing Analysis runtime check.",
+               x: x, y: y+25, style: "color=black"});
+    y += 25;
 
     // -------------------------- MemorySegment
     x = 2030;
@@ -855,22 +871,6 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          edges: []};
 
     y += 25;
-    issues["8343685"] = {desc:"Refactor VPointer with MemPointer",
-                         assigned:"Emanuel",
-                         jdk: 25,
-                         pr: "https://github.com/openjdk/jdk/pull/21926",
-                         x: x, y: y, color: rfe_review, radius: 7,
-                         edges: []};
-    // TODO comment
-
-    y += 25;
-    issues["8331576"] = {desc:"Pointer parsing issue with CastX2P",
-                         assigned:"Emanuel",
-                         jdk: 0,
-                         pr: "",
-                         x: x+20, y: y, color: rfe_open, radius: 5,
-                         edges: [{style: "parent", name: "8343685", color: "blue"}]};
-    y += 25;
     issues["8331659"] = {desc:"missing optimizations in TestMemorySegment.java",
                          assigned:"Emanuel",
                          jdk: 0,
@@ -884,8 +884,25 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          pr: "",
                          x: x, y: y, color: rfe_open, radius: 5,
                          edges: []};
-    y += 25;
 
+
+    y += 200;
+    issues["8343685"] = {desc:"Refactor VPointer with MemPointer",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/21926",
+                         x: x, y: y, color: priority, radius: 7,
+                         edges: []};
+    // TODO comment
+
+    y += 25;
+    issues["8331576"] = {desc:"Pointer parsing issue with CastX2P",
+                         assigned:"Emanuel",
+                         jdk: 0,
+                         pr: "",
+                         x: x+20, y: y, color: rfe_open, radius: 5,
+                         edges: [{style: "parent", name: "8343685", color: "blue"}]};
+    y += 25;
 
     // -------------------------- Testing / Benchmarking
     x = 2530;
@@ -939,14 +956,14 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          assigned:"Theo",
                          jdk: 0,
                          pr: "https://github.com/openjdk/jdk/pull/22941",
-                         x: x, y: y, color: rfe_open, radius: 5,
+                         x: x, y: y, color: priority, radius: 5,
                          edges: []};
     y += 25;
     issues["8344942"] = {desc:"Template-Based Testing Framework",
                          assigned:"Emanuel",
                          jdk: 0,
                          pr: "https://github.com/openjdk/jdk/pull/22483",
-                         x: x, y: y, color: rfe_open, radius: 7,
+                         x: x, y: y, color: priority, radius: 7,
                          edges: []};
     y += 25;
     // TODO comment?
@@ -990,27 +1007,28 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
 
 
     // --------------------------- TODO
-    x = 530;
-    y = 1300;
-
-    issues["8324751"] = {desc:"AliasingAnalysis",
+    x = 1750;
+    y = 600;
+    issues["8324751"] = {desc:"AliasingAnalysis runtime check",
                          assigned:"Emanuel",
                          jdk: 0,
                          pr: "",
                          x: x, y: y, color: priority, radius: 7,
-                         edges: []};
-    y += 25;
-    // TODO comment etc
+                         edges: [{style: "after", name: "8323582", color: "orange"}]};
+    tags.push({text: "Especially important for MemorySegment, where we never statically know if they alias.",
+               x: x, y: y+25, style: "color=black"});
 
-
+    x = 2250;
+    y = 650;
     issues["8340093"] = {desc:"Implement Cost-Model",
                          assigned:"Emanuel",
                          jdk: 0,
                          pr: "https://github.com/openjdk/jdk/pull/20964",
                          x: x, y: y, color: priority, radius: 7,
-                         edges: []};
+                         edges: [{style: "after", name: "8343685", color: "orange"}]};
+    tags.push({text: "Cost-Model enables: reductions, shuffle, extract, if-conversion, ... all introduce additional nodes that have additional cost.",
+               x: x, y: y+50, style: "color=black"});
     y += 25;
-    // TODO comment etc
 
     issues["8346993"] = {desc:"Refactor VectorNode::make",
                          assigned:"Emanuel",
@@ -1019,8 +1037,6 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
                          x: x+20, y: y, color: rfe_done, radius: 3,
                          edges: [{style: "parent", name: "8340093", color: "blue"}]};
     y += 25;
-
-
 
     for (const [name, issue] of Object.entries(issues)) {
       issue.name = name;

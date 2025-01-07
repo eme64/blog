@@ -3,7 +3,7 @@ title: "AutoVectorization (SuperWord) Status"
 date: 2025-01-01
 ---
 
-TODO
+I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal is to help myself and others understand the different improvements and their dependencies.
 
 <p>Navigate: [+/-] Zoom, [F] toggle Fullscreen</p>
 <iframe id = "issue_graph" height="800px" width="100%" resize="both" overflow="auto">
@@ -1036,14 +1036,4 @@ TODO
   }
 
   init()
-</script>
-
-TODO
-
-<script src="https://utteranc.es/client.js"
-        repo="eme64/blog"
-        issue-term="pathname"
-        theme="github-light"
-        crossorigin="anonymous"
-        async>
 </script>

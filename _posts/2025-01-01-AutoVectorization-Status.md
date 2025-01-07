@@ -5,18 +5,11 @@ date: 2025-01-01
 
 TODO
 
-<p>Navigate: [+/-] Zoom</p>
-<iframe id = "issue_graph" height="800" width="100%" resize="both" overflow="auto">
+<p>Navigate: [+/-] Zoom, [F] toggle Fullscreen</p>
+<iframe id = "issue_graph" height="800px" width="100%" resize="both" overflow="auto">
 </iframe>
 
 <script>
-
-  gp_inner = document.getElementById(".wrapper");
-  if (gp_inner !== null) {
-    gp_inner["max-width"] = "100%";
-  } else {
-    console.log("wrapper not found.");
-  }
 
   maxX = 100;
   maxY = 100;
@@ -25,6 +18,8 @@ TODO
   tags = []
 
   graph_zoom = 1.0;
+
+  graph_fullscreen = false;
 
   graph_document = undefined;
 
@@ -41,6 +36,9 @@ TODO
 
     var ctx = canv.getContext("2d");
     ctx.clearRect(0, 0, canv.width, canv.height);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canv.width, canv.height);
 
     // Draw edges
     for (const [name, issue] of Object.entries(issues)) {
@@ -163,6 +161,22 @@ TODO
           graph_zoom /= 1.05;
           graph_zoom = Math.max(0.1, graph_zoom);
           universe.style = "zoom:" + graph_zoom;
+          break;
+        case "f":
+          graph_fullscreen = !graph_fullscreen;
+          if (graph_fullscreen) {
+            graph_frame.style.position = "absolute";
+            graph_frame.style.left  = "0";
+            graph_frame.style.right = "0";
+            graph_frame.style.width =  "calc(100% - 20px)";
+            graph_frame.style.height = "calc(100% - 100px)";
+	  } else {
+            graph_frame.style.position = "relative";
+            graph_frame.style.left  = "0";
+            graph_frame.style.right = "0";
+            graph_frame.style.width =  "100%";
+            graph_frame.style.height = "800px";
+          }
           break;
         default:
           console.log("keydown " + event.key + " " + event.code);

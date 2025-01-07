@@ -11,7 +11,7 @@ TODO
 
 <script>
 
-  gp_inner = document.getElementById(".inner");
+  gp_inner = document.getElementById(".wrapper");
   if (gp_inner !== null) {
     gp_inner["may-width"] = "100%";
   }

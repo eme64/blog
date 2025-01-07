@@ -5,7 +5,7 @@ date: 2025-01-01
 
 TODO
 
-<iframe id = "issue_graph" height="800" width="100%" resize="both" overflow="auto">
+<iframe id = "issue_graph" height="800" width="1000" resize="both" overflow="auto">
 </iframe>
 
 <script>

@@ -41,7 +41,7 @@ public class Test {
 }
 ```
 We see that `Test.test` calls `Test.testHelper` 3 times, and adds up the results.
-If we manually evaluate the code, we see that it computes `101 * a + 202 * a + 53 * a`, which could be simplified to `303 * a + 53 * b`.
+If we manually evaluate the code, we see that it computes `101 * a + 202 * a + 53 * b`, which could be simplified to `303 * a + 53 * b`.
 
 We run the example like this, to see the generated IR:
 ```bash
@@ -79,7 +79,7 @@ We can see that the compilation indeed was simplified to `303 * a + 53 * b`. How
 We can see that the annotations on the right indicate that the code originates from both `Test::test` and `Test::testHelper`.
 Hence, we can conclude that the `Test::testHelper` code was inlined into the compilation of `Test::test`.
 
-We confirm this with the `PrintInliing` flag:
+We confirm this with the `PrintInlining` flag:
 ```bash
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true

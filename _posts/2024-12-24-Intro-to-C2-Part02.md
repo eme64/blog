@@ -153,6 +153,27 @@ return 101 * a + 202 * a + 53 * b;
 ```
 But how do we get to `303 * a + 53 * b`?
 
+**Using IGV, the Ideal Graph Visualizer**
+
+The [IdealGraphVisualizer](https://github.com/openjdk/jdk/tree/master/src/utils/IdealGraphVisualizer)
+is a visualizer for C2 IR.
+
+I usually get it to run like this:
+```bash
+cd src/utils/IdealGraphVisualizer/
+echo $JAVA_HOME
+// If that prints nothing, you must set it to a JDK version between 17 and 21
+// For example, I do:
+// export JAVA_HOME=/oracle-work/jdk-21.0.3/fastdebug/
+// or
+// export JAVA_HOME=/oracle-work/jdk-17.0.8/
+mvn clean install
+// The install takes a while... and once complete we can launch IGV:
+bash ./igv.sh
+```
+
+TODO
+
 **Using the RR Debugger**
 
 TODO

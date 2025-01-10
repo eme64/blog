@@ -196,7 +196,304 @@ control and see how it links to the C++ code of the compiler.
 
 **Using the RR Debugger**
 
-TODO
+Many are familiar with [gdb](https://en.wikipedia.org/wiki/GNU_Debugger), a commonly used debugger for C / C++ / assembly.
+[rr](https://en.wikipedia.org/wiki/Rr_(debugging)) is provides an enhancement to gdb, by allowing reverse-execution.
+This has been an essencial tool when debugging the C2 compiler:
+I often see a state of the IR, and wonder how we got there.
+Then I can set watchpoints or breakpoints, and let rr reverse-continue, leading
+me to an earlier state that hopefully gives me more information about what happened
+and why.
+
+You should probably consult an online tutorial if you have never used it. I will simply present how I use it below, but that
+will not give you a complete picture of what you can do with rr.
+
+Personally, I have made the experience that the `fastdebug` build of Hotspot is much faster than the `slowdebug`, but for debugging
+I prefer to use `slowdebug` because it seems to work more reliably, i.e. fewer things are optimized away.
+
+Let us record a run:
+```
+rr ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test Test.java
+```
+
+Once recorded, we can `rr replay` this run as many times as we would like, and it is always exactly the same. The recording allows us also to do reverse execution, since
+the debugger has a history it traverse forward and backward. On my system, this looks like this:
+```
+$ rr replay
+GNU gdb (Ubuntu 9.2-0ubuntu1~20.04.2) 9.2
+Copyright (C) 2020 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from /oracle-work/jdk-fork0/build/linux-x64-slowdebug/jdk/bin/java...
+Reading symbols from /oracle-work/jdk-fork0/build/linux-x64-slowdebug/jdk/bin/java.debuginfo...
+Really redefine built-in command "restart"? (y or n) [answered Y; input not from terminal]
+Really redefine built-in command "jump"? (y or n) [answered Y; input not from terminal]
+Remote debugging using 127.0.0.1:48849
+Reading symbols from /lib64/ld-linux-x86-64.so.2...
+Reading symbols from /usr/lib/debug/.build-id/db/0420f708b806cf03260aadb916c330049580b7.debug...
+0x00007f0d32dfd100 in _start () from /lib64/ld-linux-x86-64.so.2
+(rr) c
+Continuing.
+[New Thread 244952.244953]
+
+Thread 2 received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 244952.244953]
+0x00007f0d2cb3966c in ?? ()
+(rr) b Optimize
+Breakpoint 1 at 0x7f0d30a3b3ad: file /oracle-work/jdk-fork0/open/src/hotspot/share/opto/compile.cpp, line 2220.
+(rr) c
+Continuing.
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+CompileCommand: PrintInlining Test.test bool PrintInlining = true
+[New Thread 244952.244961]
+Run
+9897   85    b        Test::test (22 bytes)
+[New Thread 244952.244954]
+[New Thread 244952.244955]
+[New Thread 244952.244956]
+[New Thread 244952.244957]
+[New Thread 244952.244958]
+[New Thread 244952.244959]
+[New Thread 244952.244960]
+[New Thread 244952.244962]
+[New Thread 244952.244963]
+[Switching to Thread 244952.244961]
+
+Thread 3 hit Breakpoint 1, Compile::Optimize (this=0x7f0d2556a870) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/compile.cpp:2220
+warning: Source file is more recent than executable.
+2220	  TracePhase tp(_t_optimizer);
+(rr) 
+```
+Once `rr replay` starts for `java`, it tends to break at `_start`. At this point it has not yet loaded the JVM code, and so we can not yet
+set breakpoints. So I `continue` (or simply `c`) once. Now it traps at a `SIGSEGV`, which is expected. Since the symbols are now all
+available, I can set a breakpoint at `Compile::Optimize` with `b Optimize`. Continuing forward once more with `c`, we hit the `Breakpoint 1`
+at `Compile::Optimize`.
+
+We see that we are on this line:
+```
+2220	  TracePhase tp(_t_optimizer);
+```
+
+But with `Ctrl-x-a` one can swap to and from the code view:
+![image](https://github.com/user-attachments/assets/ce41a49e-cb9f-4878-a000-a80862236cef)
+
+We can also get a backtrace:
+```
+(rr) bt
+#0  Compile::Optimize (this=0x7f0d2556a870) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/compile.cpp:2220
+#1  0x00007f0d30a34a28 in Compile::Compile (this=0x7f0d2556a870, ci_env=0x7f0d2556b6e0, target=0x7f0d284cc758, 
+    osr_bci=-1, options=..., directive=0x7f0d283b3440)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/compile.cpp:852
+#2  0x00007f0d309003af in C2Compiler::compile_method (this=0x7f0d2813daa0, env=0x7f0d2556b6e0, target=0x7f0d284cc758, 
+    entry_bci=-1, install_code=true, directive=0x7f0d283b3440)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/c2compiler.cpp:142
+#3  0x00007f0d30a57fc3 in CompileBroker::invoke_compiler_on_method (task=0x7f0d286a86d0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/compiler/compileBroker.cpp:2319
+#4  0x00007f0d30a56a44 in CompileBroker::compiler_thread_loop ()
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/compiler/compileBroker.cpp:1977
+#5  0x00007f0d30a76aab in CompilerThread::thread_entry (thread=0x7f0d28188ff0, __the_thread__=0x7f0d28188ff0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/compiler/compilerThread.cpp:68
+#6  0x00007f0d30ed61fa in JavaThread::thread_main_inner (this=0x7f0d28188ff0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/runtime/javaThread.cpp:772
+#7  0x00007f0d30ed608f in JavaThread::run (this=0x7f0d28188ff0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/runtime/javaThread.cpp:757
+#8  0x00007f0d31682995 in Thread::call_run (this=0x7f0d28188ff0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/runtime/thread.cpp:232
+#9  0x00007f0d313fc5d0 in thread_native_entry (thread=0x7f0d28188ff0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/os/linux/os_linux.cpp:849
+#10 0x00007f0d32b74609 in start_thread (arg=<optimized out>) at pthread_create.c:477
+#11 0x00007f0d32a97353 in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:95
+(rr)
+```
+
+We can navigate up and down the backtrace with `up` and `down`. If we go `up` one level, we see that in `Compile::Compile`
+there is a lot of code, but essencially we get a `ciMethod* target`, for which we:
+- Parse and potentially inline code recursively. This gives us the C2 IR.
+- `Optimize`: this is where the heavier optimizations take place.
+- `Code_Gen`: we generate machine code from the IR.
+
+Let us look at the IR at the start of `Compile::Optimize`:
+```bash
+(rr) p find_nodes_by_dump("")
+  0  Root  === 0 66  [[ 0 1 3 52 50 ]] 
+  1  Con  === 0  [[ ]]  #top
+  3  Start  === 3 0  [[ 3 5 6 7 8 9 10 11 ]]  #{0:control, 1:abIO, 2:memory, 3:rawptr:BotPTR, 4:return_address, 5:int, 6:int}
+  5  Parm  === 3  [[ 66 ]] Control !jvms: Test::test @ bci:-1 (line 17)
+  6  Parm  === 3  [[ 66 ]] I_O !jvms: Test::test @ bci:-1 (line 17)
+  7  Parm  === 3  [[ 66 ]] Memory  Memory: @BotPTR *+bot, idx=Bot; !jvms: Test::test @ bci:-1 (line 17)
+  8  Parm  === 3  [[ 66 ]] FramePtr !jvms: Test::test @ bci:-1 (line 17)
+  9  Parm  === 3  [[ 66 ]] ReturnAdr !jvms: Test::test @ bci:-1 (line 17)
+ 10  Parm  === 3  [[ 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
+ 11  Parm  === 3  [[ 64 ]] Parm1: int !jvms: Test::test @ bci:-1 (line 17)
+ 50  ConI  === 0  [[ 51 ]]  #int:303
+ 51  MulI  === _ 10 50  [[ 65 ]]  !jvms: Test::test @ bci:13 (line 17)
+ 52  ConI  === 0  [[ 64 ]]  #int:53
+ 64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:17 (line 17)
+ 65  AddI  === _ 51 64  [[ 66 ]]  !jvms: Test::test @ bci:20 (line 17)
+ 66  Return  === 5 6 7 8 9 returns 65  [[ 0 ]] 
+$1 = void
+(rr) 
+```
+The command `find_nodes_by_dump("")` traverses all IR nodes and prints those that match the search string.
+With an empty string, we match all nodes, and print the whole graph.
+
+We see that we have already constant-folded the expression to `303 * a + 53 * b` at this point.
+
+We can print a subgraph like this like this:
+```
+(rr) p find_node(65)->dump_bfs(2, 0, "#")
+dist dump
+---------------------------------------------
+   2  52  ConI  === 0  [[ 64 ]]  #int:53
+   2  11  Parm  === 3  [[ 64 ]] Parm1: int !jvms: Test::test @ bci:-1 (line 17)
+   2  50  ConI  === 0  [[ 51 ]]  #int:303
+   2  10  Parm  === 3  [[ 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
+   1  64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:17 (line 17)
+   1  51  MulI  === _ 10 50  [[ 65 ]]  !jvms: Test::test @ bci:13 (line 17)
+   0  65  AddI  === _ 51 64  [[ 66 ]]  !jvms: Test::test @ bci:20 (line 17)
+$3 = void
+(rr)
+```
+
+We can also look at inputs of nodes like this:
+```
+(rr) p find_node(51)->in(2)->dump()
+ 50  ConI  === 0  [[ 51 ]]  #int:303
+$5 = void
+(rr)
+```
+
+If we want to find out where the constant-folding happened, we need to step backwards.
+But manually stepping backwards would be extremely tedious.
+
+But we know that the constant `303` is introduced from the addition `202 + 101`, and the input of node
+`51 MulI` must be set after that. We are interested when this link has changed. I get there by
+setting a watchpoint on the memory location of `_in[2]`:
+
+```
+(rr) p find_node(51)->in(2)
+$6 = (Node *) 0x7f0d284be0c8
+(rr) p find_node(51)->_in[2]
+$7 = (Node *) 0x7f0d284be0c8
+(rr) p &find_node(51)->_in[2]
+$8 = (Node **) 0x7f0d284be1b8
+(rr) watch *0x7f0d284be1b8
+Hardware watchpoint 2: *0x7f0d284be1b8
+(rr) rc
+Continuing.
+
+Thread 3 hit Hardware watchpoint 2: *0x7f0d284be1b8
+
+Old value = 676061384
+New value = -1414812757
+0x00007f0d313a71b8 in Node::Node (this=0x7f0d284be140, n0=0x0, n1=0x7f0d284bbea0, n2=0x7f0d284be0c8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/node.cpp:380
+warning: Source file is more recent than executable.
+380	  _in[2] = n2; if (n2 != nullptr) n2->add_out((Node *)this);
+(rr) bt
+#0  0x00007f0d313a71b8 in Node::Node (this=0x7f0d284be140, n0=0x0, n1=0x7f0d284bbea0, n2=0x7f0d284be0c8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/node.cpp:380
+#1  0x00007f0d3068d693 in MulNode::MulNode (this=0x7f0d284be140, in1=0x7f0d284bbea0, in2=0x7f0d284be0c8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/mulnode.hpp:44
+#2  0x00007f0d3068d6e5 in MulINode::MulINode (this=0x7f0d284be140, in1=0x7f0d284bbea0, in2=0x7f0d284be0c8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/mulnode.hpp:94
+#3  0x00007f0d31374463 in MulNode::make (in1=0x7f0d284bbea0, in2=0x7f0d284be0c8, bt=T_INT) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/mulnode.cpp:218
+#4  0x00007f0d30686d45 in AddNode::IdealIL (this=0x7f0d284bdfc8, phase=0x7f0d25569dc0, can_reshape=false, bt=T_INT) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/addnode.cpp:375
+#5  0x00007f0d3068796a in AddINode::Ideal (this=0x7f0d284bdfc8, phase=0x7f0d25569dc0, can_reshape=false) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/addnode.cpp:583
+#6  0x00007f0d31462fc4 in PhaseGVN::apply_ideal (this=0x7f0d25569dc0, k=0x7f0d284bdfc8, can_reshape=false) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/phaseX.cpp:669
+#7  0x00007f0d3146300b in PhaseGVN::transform (this=0x7f0d25569dc0, n=0x7f0d284bdfc8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/phaseX.cpp:682
+#8  0x00007f0d3144bbaa in Parse::do_one_bytecode (this=0x7f0d25569990) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/parse2.cpp:2232
+#9  0x00007f0d3143c9a5 in Parse::do_one_block (this=0x7f0d25569990) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/parse1.cpp:1587
+#10 0x00007f0d314388fd in Parse::do_all_blocks (this=0x7f0d25569990) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/parse1.cpp:725
+#11 0x00007f0d3143841f in Parse::Parse (this=0x7f0d25569990, caller=0x7f0d284c78b0, parse_method=0x7f0d284cc758, expected_uses=6784)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/parse1.cpp:629
+#12 0x00007f0d30902bb1 in ParseGenerator::generate (this=0x7f0d284c7898, jvms=0x7f0d284c78b0) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/callGenerator.cpp:99
+#13 0x00007f0d30a34600 in Compile::Compile (this=0x7f0d2556a870, ci_env=0x7f0d2556b6e0, target=0x7f0d284cc758, osr_bci=-1, options=..., directive=0x7f0d283b3440)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/compile.cpp:797
+#14 0x00007f0d309003af in C2Compiler::compile_method (this=0x7f0d2813daa0, env=0x7f0d2556b6e0, target=0x7f0d284cc758, entry_bci=-1, install_code=true, directive=0x7f0d283b3440)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/c2compiler.cpp:142
+#15 0x00007f0d30a57fc3 in CompileBroker::invoke_compiler_on_method (task=0x7f0d286a86d0) at /oracle-work/jdk-fork0/open/src/hotspot/share/compiler/compileBroker.cpp:2319
+#16 0x00007f0d30a56a44 in CompileBroker::compiler_thread_loop () at /oracle-work/jdk-fork0/open/src/hotspot/share/compiler/compileBroker.cpp:1977
+#17 0x00007f0d30a76aab in CompilerThread::thread_entry (thread=0x7f0d28188ff0, __the_thread__=0x7f0d28188ff0)
+    at /oracle-work/jdk-fork0/open/src/hotspot/share/compiler/compilerThread.cpp:68
+#18 0x00007f0d30ed61fa in JavaThread::thread_main_inner (this=0x7f0d28188ff0) at /oracle-work/jdk-fork0/open/src/hotspot/share/runtime/javaThread.cpp:772
+#19 0x00007f0d30ed608f in JavaThread::run (this=0x7f0d28188ff0) at /oracle-work/jdk-fork0/open/src/hotspot/share/runtime/javaThread.cpp:757
+#20 0x00007f0d31682995 in Thread::call_run (this=0x7f0d28188ff0) at /oracle-work/jdk-fork0/open/src/hotspot/share/runtime/thread.cpp:232
+#21 0x00007f0d313fc5d0 in thread_native_entry (thread=0x7f0d28188ff0) at /oracle-work/jdk-fork0/open/src/hotspot/os/linux/os_linux.cpp:849
+#22 0x00007f0d32b74609 in start_thread (arg=<optimized out>) at pthread_create.c:477
+#23 0x00007f0d32a97353 in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:95
+(rr) 
+```
+We see that this edge was set in `MulINode::MulINode`, the construction of `51  MulI`. Going further up the backtrace, we see
+that this happened in `AddINode::Ideal` (the idealization of some `AddI` - we will look at this below).
+Even further up, we see that this happens during `PhaseGVN::transform` (we are doing GVN - global value numbering).
+And further up from that we see that this happens during `Parse::do_one_bytecode` (bytecode parsing) and finally inside `Compile::Compile`.
+
+Let's look at all these steps in turn.
+
+In `Parse::do_one_bytecode`, we seem to be parsing an `iadd` bytecode:
+```cpp
+case Bytecodes::_iadd:
+  b = pop(); a = pop();
+  push( _gvn.transform( new AddINode(a,b) ) );
+  break;
+```
+This does what the bytecode is supposed to do:
+- `pop` two arguments from the stack.
+- Compute the addition: here we create an `AddINode`, and already GVN transform it.
+- `push` the result back onto the stack.
+
+In `PhaseGVN::transform` we already perform some local optimizations:
+- `apply_ideal` iteratively calls `Node::Ideal` (with `can_reshape` disabled, more about that later): this tries to construct a more "ideal" (canonicalized and/or cheaper) subgraph.
+- `Node::Value`: compute a tighter type, possibly constant folding the node (see `singleton`).
+- `Node::Identity`: tries to find another node that "does the same thing", and replaces the node with that node.
+
+GVN is very important, as it canonicalizes the graph in preparation for other optimizations (they now only need to match canonical patterns, which makes writing optimizations easier).
+And it performs local optimizations, such as constant folding.
+
+Now let us look at the lowest part of the backtrace, where the idealization happens.
+In `AddNode::IdealIL`, we see that we have matched some `Associative` pattern.
+```
+(rr) p this->dump_bfs(2,0,"#")
+dist dump
+---------------------------------------------
+   2  35  ConI  === 0  [[ 25 43 47 49 ]]  #int:202
+   2  23  ConI  === 0  [[ 22 31 34 49 ]]  #int:101
+   2  10  Parm  === 3  [[ 4 19 22 22 25 31 34 43 47 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
+   1  47  MulI  === _ 10 35  [[ 42 37 48 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:10 (line 17)
+   1  34  MulI  === _ 10 23  [[ 30 25 37 48 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:3 (line 17)
+   0  48  AddI  === _ 34 47  [[ ]]  !jvms: Test::test @ bci:13 (line 17)
+```
+This is `(a * 101) + (a * 202)`, matching the pattern `Convert "a*b+a*c into a*(b+c)` in the code.
+Printing the local results, we get:
+```
+(rr) p add_in2->dump()
+ 35  ConI  === 0  [[ 25 43 47 49 ]]  #int:202
+(rr) p add_in1->dump()
+ 23  ConI  === 0  [[ 22 31 34 49 ]]  #int:101
+(rr) p add_in2->dump()
+ 35  ConI  === 0  [[ 25 43 47 49 ]]  #int:202
+(rr) p add->dump()
+ 50  ConI  === 0  [[ ]]  #int:303
+(rr) p mul_in->dump()
+ 10  Parm  === 3  [[ 4 19 22 22 25 31 34 43 47 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
+```
+It turns out that in `Node* add = phase->transform(AddNode::make(add_in1, add_in2, bt));`, the GVN transform has already
+converted the `b + c = 202 + 101` into `303`.
+
+Finally, `AddNode::IdealIL` does `return MulNode::make(mul_in, add, bt);`, which gives us `a * 303`.
+This is the `51 MulI` with the `303` constant input we have set the watchpoint for earlier.
+
+Note: it took me a long time to get comfortable stepping arount the C2 code with rr, and
+tracing around such graph transformations. So do not be discouraged if this feels hard to
+replicate. It helped me a lot to draw IR graphs on paper, and map out the different steps.
 
 [Continue with Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
 

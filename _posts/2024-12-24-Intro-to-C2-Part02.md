@@ -8,7 +8,9 @@ I assume that you have already looked at
 [Part 1](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part01.html).
 
 In Part 2, we look at:
-- TODO
+- Inlining and GVN (global value numbering) during parsing.
+- Using IGV (Ideal Graph Visualizer) and RR (debugger) to look at the IR and transformations of it.
+- A simple "idealization" of `101 * a + 202 * a` to `303 * a`.
 
 [Skip forward to Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
 

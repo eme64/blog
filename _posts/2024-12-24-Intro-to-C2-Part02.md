@@ -72,6 +72,29 @@ Here a visualization of the graph:
 
 ![image](https://github.com/user-attachments/assets/bad657eb-da3c-4388-adcc-79a1190c476f)
 
+And with `-XX:CompileCommand=print,Test::test` we can find the corresponding assemlby instructions:
+```
+------------------------ OptoAssembly for Compile_id = 85 -----------------------
+...
+01a     imull   RAX, RSI, #303	# int
+020     imull   R11, RDX, #53	# int
+024     addl    RAX, R11	# int
+...
+036     ret
+...
+
+----------------------------------- Assembly -----------------------------------
+  # {method} {0x00007f9bed094400} 'test' '(II)I' in 'Test'
+  # parm0:    rsi       = int
+  # parm1:    rdx       = int
+...
+  0x00007f9c1118799a:   imul   $0x12f,%esi,%eax
+  0x00007f9c111879a0:   imul   $0x35,%edx,%r11d
+  0x00007f9c111879a4:   add    %r11d,%eax
+...
+  0x00007f9c111879b6:   retq
+```
+
 We can see that the compilation indeed was simplified to `303 * a + 53 * b`. How did that happen?
 
 **CompileCommand PrintInlining**

@@ -153,6 +153,8 @@ return 101 * a + 202 * a + 53 * b;
 ```
 But how do we get to `303 * a + 53 * b`?
 
+We will trace the steps first in IGV, then in the debugger.
+
 **Using IGV, the Ideal Graph Visualizer**
 
 The [IdealGraphVisualizer](https://github.com/openjdk/jdk/tree/master/src/utils/IdealGraphVisualizer)
@@ -172,7 +174,25 @@ mvn clean install
 bash ./igv.sh
 ```
 
-TODO
+At first, you should get a window like this:
+![image](https://github.com/user-attachments/assets/17052bf5-e33c-4347-8544-4410e83833c3)
+
+Then, you can sent the graph from our test execution to IGV, using `-XX:PrintIdealGraphLevel=1`:
+```bash
+java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:PrintIdealGraphLevel=1 Test.java
+```
+
+Now a first folder should have arrived in IGV, which contains a sequence of 3 graphs:
+![image](https://github.com/user-attachments/assets/92193df6-0a2e-4809-b14e-760b075adf54)
+
+We can see that the graph was already folded during parsing (see `51 MulI` node with `50 ConI` input that has value `int:303`):
+![image](https://github.com/user-attachments/assets/22bfd931-26f9-4cf4-bd5f-02649aaef850)
+
+Some constant-folding has already during parsing, so we increase the number of graphs that are generated with `-XX:PrintIdealGraphLevel=6`, and get a second folder with more graphs:
+![image](https://github.com/user-attachments/assets/77f317c2-a344-4db8-8f1a-2f9d3127fc53)
+We can now see the graph after each bytecode is parsed. The graphs look quite large and a little messy, as they are not yet cleaned up.
+Personally, I find IGV good to get an overview over the graph, but when it comes to specific questions I prefer to debug directly using RR, where I have more fine-grained
+control and see how it links to the C++ code of the compiler.
 
 **Using the RR Debugger**
 

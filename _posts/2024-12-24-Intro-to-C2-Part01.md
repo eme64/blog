@@ -46,7 +46,7 @@ public class Test {
 
 We can run it like this:
 
-```bash
+```
 $ java Test.java
 Run
 Done
@@ -59,12 +59,12 @@ This bytecode is still platform agnostic, and needs to be executed by the JVM.
 The JVM can interpret the bytecode, or further compile it to platform specific machine code.
 
 We can explicitly compile our test file to bytecode in a class-file:
-```bash
+```
 $ javac Test.java
 ```
 
 This generates a `Test.class`. We can inspect its content:
-```bash
+```
 $ javap -c Test.class
 Compiled from "Test.java"
 public class Test {
@@ -108,13 +108,13 @@ public class Test {
 For now, you do not need to understand this code. We see that there are 3 methods defined in the `Test` class:
 - `<init>`: This is the code of the default constructor, which calls the super-class `Object` constructor.
 - `main`:  We see some `invokevirtual` for `println`, an `invokestatic` for `test`, and a `goto 10` for the loop backedge.
-- `test`: The two `int` arguments are put into registers `0` and `1`. The `iload_0` and `iload_1` take those arguments from the registers, and push them onto the stack. `iadd` takes the two values from the stack, and puts their addition back on the stack. `ireturn` pops that value off the stack again, and returns it.
+- `test`: The two `int` arguments are put into locals `0` and `1`. The `iload_0` and `iload_1` take those arguments from the locals, and push them onto the stack. `iadd` takes the two values from the stack, and puts their addition back on the stack. `ireturn` pops that value off the stack again, and returns it.
 
 If you are interested to learn more about Java Bytecode:
 - [Java Bytecode (Wikipedia)](https://en.wikipedia.org/wiki/List_of_Java_bytecode_instructions): helpful reference for all the bytecodes.
 - [asmtools](https://github.com/openjdk/asmtools): tool to assemble / disassemble class-files. When I am working on a bug where I am only provided a class-file, I often inspect the class-file with `jdis`, modify it, and compile it again with `jasm`. That way I can often even reconstruct the reproducer with Java code eventually.
 
-Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class-file.
+Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class-file. [This only works since JDK11](https://dev.java/learn/single-file-program/).
 
 Note 2: `.jar` files are simply a zip-directory of various `.class` files.
 
@@ -125,13 +125,15 @@ Simplifying, there are 3 types of builds:
 - (fast)debug: runs slower than product, but executes asserts, and allows debug VM flags.
 - slowdebug: runs slower than fastdebug, but has more symbols available which enables a better debugging esperience with GDB / RR.
 
+The difference in these builds is mainly differing GCC optimization levels. And debug builds have some extra debugging flags available.
+
 I tend to work with fastdebug by default, but then switch to slowdebug if GDB / RR behave in unexpected ways (e.g. if they do not break at the expected line).
 
 **VM CompileCommand printcompilation**
 
 Let us now continue with the example, and inspect which methods are compiled:
 
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,*::* Test.java
 CompileCommand: PrintCompilation *.* bool PrintCompilation = true
 360    1       3       java.lang.Byte::toUnsignedInt (6 bytes)
@@ -149,7 +151,7 @@ Done
 ```
 
 From this log, we can already see a lot about how HotSpot compiles and executes our code:
-- There are a lot of compilations that are not from our `Test.java`. It comes from the JVM initialization, which itself loads a number of classes, runs code and compiles some of it.
+- There are a lot of compilations that are not from our `Test.java`. They are triggered by the Java runtime and libraries for example.
 - The first column displays the time, when the compilation is issues in milli-seconds. `Test::test` is executed after `10876` milli-seconds.
 - The second column is the unique id of the compilation, which we can see counting up. It is not always perfectly in order.
 - The third column indicates which compiler was used. Tier 1-3 are used for C1, tier 4 is used for C2.
@@ -158,7 +160,7 @@ From this log, we can already see a lot about how HotSpot compiles and executes 
 Usually, we are only interested in the compilations of certain classes, here of `Test`.
 We can limit for which classes we enable `printcompilation`:
 
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
@@ -171,15 +173,20 @@ Done
 In our execution above, we notice that from our `Test.java` only `Test::test` was ever compiled, and only with C1 (tier 1, 2, or 3).
 But we obviously are also running `Test::main`, so why does that method not get compiled?
 
-The HotSpot JVM executes your Java code in one of these ways:
+The HotSpot JVM executes your Java (byte-)code in one of these ways:
 - Interpreter: initially all code is executed in the interpreter. This means we can start executing code immediately, but not at a high speed. We profile which code is executed, by counting how many times a method is invoked for example. If we reach a certain threshold, we decide that this method should be compiled, so we add the method to the compilation queue. But in the meantime we continue executing in the interpreter. If we ever enter that method again, and the compilation is complete, then we can execute the compiled code.
-- C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate machine code quickly, which is already much faster than the interpreter. C1 does not optimize the code, because that would take additional time which we do not want to spend at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
+- C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate machine code quickly, which is already much faster than the interpreter. C1 performs only very limited optimizations, because we do not want to spend more time at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
 - C2: Once profiling has determined that the code is very hot, we want to generate highly optimized machine code. We are willing to pay the higher compilation time, because we expect the code to be executed a lot in the future. The win of execution time with faster code outweighs the cost of time we spend on optimizations.
 
-Back to our example. We saw that `Test::main` was never compiled, thus must have exclusively been executed in the interpreter. `Test::test` is first executed in the interpreter, then is deemed hot enough for a C1 Compilation.
+A few more points:
+- Profiling is not only for counters but also/most important for guiding C2's aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2 compiled code would immediately deoptimize.
+- This is as simplified picture. Different paths are possible, i.e. we sometimes also directly compile at C2 or stay at C1 and also different levels of profiling are possible.
+- OSR (On Stack Replacement): if we have a loop that executes very many iterations, we would like to compile it while we are in the loop. Once the backedge is taken and the code is compiled, we can enter the compiled code at that point in the code.
+
+Back to our example. We saw that `Test::main` was never compiled, thus must have exclusively been executed in the interpreter. `Test::test` is first executed in the interpreter, then is deemed hot enough for a C1 compilation.
 
 We can force all executions to be run in the interpreter:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -Xint Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
@@ -188,7 +195,7 @@ Done
 
 Normally, compilation happens in the background, which means that when a compilation is enqueued, we continue with the old mode of execution until the new compilation is completed.
 The asynchronous behaviour can sometimes make compilation a little unpredictable. It can be beneficial for debugging to disable background compilation with `-Xbatch`:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 Run
@@ -200,7 +207,7 @@ We see that the code is now compiled first with C1, and then with C2. We also se
 This is because the VM now blocks the execution any time a compilation needs to be made - and not just in our `Test` class but also during the JVM startup.
 
 It can be useful to limit the compilation to some classes or methods:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -Xbatch -XX:CompileCommand=compileonly,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -211,7 +218,7 @@ Done
 ```
 
 With `-XX:-TieredCompilation`, we can disable tiered compilation, and only C2 is used:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -221,7 +228,7 @@ Done
 ```
 
 Alternatively, we can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:TieredStopAtLevel=3 Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -232,8 +239,8 @@ Done
 
 **A first Look at C2 IR**
 
-With `-XX:+PrintIdeal`, we can display the C2 IR (internal representation) after most optimizations are done, and before code generation:
-```bash
+With `-XX:+PrintIdeal`, we can display the C2 IR (intermediate representation) after most optimizations are done, and before code generation:
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -266,7 +273,7 @@ The other nodes are not relevant for us now, and we will come back to some of th
 **A first Look at generated Assembly Code**
 
 With `-XX:CompileCommand=print,Test::test` we can print a lot of interesting information from the compilation. Below you can see an example. We will ignore most of it, and pick out what is interesting for now.
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -530,12 +537,11 @@ We find the actual `x64` machine code in a later block:
   0x00007fc8ac5679da:   subq   $0x5,(%rsp)
   0x00007fc8ac5679df:   jmpq   0x00007fc8ac501ba0           ;   {runtime_call DeoptimizationBlob}
 ```
-You may have to install the `hsdis` disassembler, otherwise you will only see bytes here
+You have to install the `hsdis` disassembler, otherwise you will only see bytes here
 (see
 [this blog-post](https://blogs.oracle.com/javamagazine/post/java-hotspot-hsdis-disassembler)
 and
-[this wiki](https://wiki.openjdk.org/display/HotSpot/PrintAssembly)
-).
+[this wiki](https://wiki.openjdk.org/display/HotSpot/PrintAssembly)).
 
 This is now more verbose, but also represents directly what happens on the CPU. Again, the most relevant instructions are:
 - `lea    (%rsi,%rdx,1),%eax`

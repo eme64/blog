@@ -75,6 +75,8 @@ Here a visualization of the graph:
 
 ![image](https://github.com/user-attachments/assets/bad657eb-da3c-4388-adcc-79a1190c476f)
 
+Note: for now just ignore the many `Param`, `Root` and `Start` nodes, we will look at that later.
+
 And with `-XX:CompileCommand=print,Test::test` we can find the corresponding assemlby instructions:
 ```
 ------------------------ OptoAssembly for Compile_id = 85 -----------------------
@@ -147,6 +149,13 @@ If there is no exception, we take the path to the next `CallStaticJava`, and eve
 
 This all looks a little complicated, but you do not need to understand it all yet. We will look at simpler examples with control-flow later.
 Often the IR can look quite complicated, and it takes a while to understand all the nodes.
+
+But a quick explanation for those who already now want to understand more.
+`3 Start` is the beginning of the control-flow in the method, and flows via the "control-parameter" `5 Param` to the first call `24 CallStaticJava`.
+The call executes, and produces a tuple of results, which contains the control, and the return value. These must now be "projected out", via the
+control projection `25 Proj` and the return value projection `29 Proj`.
+Since we cannot see into the call, there may have been an exception thrown, so that is checked with `31 Catch`, and its two control projections:
+`33 CatchProj` (if exception was thrown) and `32 CatchProj` (if no exception was thrown).
 
 Ok, now we have seen that inlining gets us from:
 ```java

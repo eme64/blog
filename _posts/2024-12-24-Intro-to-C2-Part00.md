@@ -15,13 +15,14 @@ Target audiences:
 - Anybody interested about the JVM and (JIT) Compilers.
 
 Topics I hope to address in this series:
-- Parsing Java bytecode into IR (see-of-nodes).
+- Parsing Java bytecode into IR (sea-of-nodes).
+- Understanding C2 with visualization and through the rr-debugger.
 - IGVN and CCP (canonicalization and local optimizations).
 - Loop optimizations.
 - Matching in the backend for specific CPUs.
 
 Additionally:
-- Debugging C2 using RR (or GDB), and the help of JVM flags.
+- Debugging C2 using [rr](https://github.com/rr-debugger/rr) (or GDB), and the help of JVM flags.
 - Analyzing the generated Assembly code: what did C2 do with my Java code?
 - Benchmarks: stand-alone (just a single Java file) or using JMH.
 - Testing: how to write good tests to verify optimizations are applied and create correct Assembly code (using IR framework, random inputs, etc).
@@ -50,7 +51,7 @@ Here some other *links to get you started*:
 Links to read more about the inner workings of C2:
 - [OpenJDK Wiki on C2 IR](https://wiki.openjdk.org/display/HotSpot/C2+IR+Graph+and+Nodes)
 - High-level article about [How the JIT compiler boosts Java performance in OpenJDK (Roland Westrelin)](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#)
-- [Master thesis by Thomas Würthinger in 2007](https://ssw.jku.at/Research/Papers/Wuerthinger07Master/Wuerthinger07Master.pdf) (now works on GraalVM). Section 3 gives a good overview over the HotSpot compilation, though since 2007 tiered compilation is now the default (client compiler = C1, server compiler = C2).
+- [Master thesis by Thomas Würthinger in 2007](https://ssw.jku.at/Research/Papers/Wuerthinger07Master/Wuerthinger07Master.pdf) (now works on GraalVM). Section 3 gives a good overview over the HotSpot compilation, though since JDK-8008938 (JDK8 / 2014) tiered compilation is now the default (client compiler = C1, server compiler = C2).
 - [Slides about debugging C2 by Tobias Hartmann in 2020](https://cr.openjdk.org/~thartmann/talks/2020-Debugging_HotSpot.pdf). I hope to cover a lot of that material in this series as well.
 - [Blog by Aleksey Shipilev](https://shipilev.net/jvm/anatomy-quarks/).
 - [Blog by Roland Westrelin](https://developers.redhat.com/author/roland-westrelin).

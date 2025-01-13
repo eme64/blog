@@ -47,7 +47,7 @@ We see that `Test.test` calls `Test.testHelper` 3 times, and adds up the results
 If we manually evaluate the code, we see that it computes `101 * a + 202 * a + 53 * b`, which could be simplified to `303 * a + 53 * b`.
 
 We run the example like this, to see the generated IR:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -77,7 +77,7 @@ Here a visualization of the graph:
 
 Note: for now just ignore the many `Param`, `Root` and `Start` nodes, we will look at that later.
 
-And with `-XX:CompileCommand=print,Test::test` we can find the corresponding assemlby instructions:
+And with `-XX:CompileCommand=print,Test::test` we can find the corresponding assembly instructions:
 ```
 ------------------------ OptoAssembly for Compile_id = 85 -----------------------
 ...
@@ -108,7 +108,7 @@ We can see that the annotations on the right indicate that the code originates f
 Hence, we can conclude that the `Test::testHelper` code was inlined into the compilation of `Test::test`.
 
 We confirm this with the `PrintInlining` flag:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -123,7 +123,7 @@ Done
 We see that the `testHelper` is inlined 3 times (at bytecodes 3, 10 and 17 of `test`).
 
 We can explicitly disable inlining:
-```bash
+```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:CompileCommand=dontinline,Test::* Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
 CompileCommand: compileonly Test.test bool compileonly = true
@@ -173,7 +173,7 @@ The [IdealGraphVisualizer](https://github.com/openjdk/jdk/tree/master/src/utils/
 is a visualizer for C2 IR.
 
 I usually get it to run like this:
-```bash
+```
 cd src/utils/IdealGraphVisualizer/
 echo $JAVA_HOME
 // If that prints nothing, you must set it to a JDK version between 17 and 21
@@ -190,7 +190,7 @@ At first, you should get a window like this:
 ![image](https://github.com/user-attachments/assets/17052bf5-e33c-4347-8544-4410e83833c3)
 
 Then, you can sent the graph from our test execution to IGV, using `-XX:PrintIdealGraphLevel=1`:
-```bash
+```
 java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:PrintIdealGraphLevel=1 Test.java
 ```
 
@@ -200,7 +200,7 @@ Now a first folder should have arrived in IGV, which contains a sequence of 3 gr
 We can see that the graph was already folded during parsing (see `51 MulI` node with `50 ConI` input that has value `int:303`):
 ![image](https://github.com/user-attachments/assets/22bfd931-26f9-4cf4-bd5f-02649aaef850)
 
-Some constant-folding has already during parsing, so we increase the number of graphs that are generated with `-XX:PrintIdealGraphLevel=6`, and get a second folder with more graphs:
+Some constant-folding has already taken place during parsing. We can make the graph printing more fine-grained with `-XX:PrintIdealGraphLevel=6`, and get a second folder with more graphs:
 ![image](https://github.com/user-attachments/assets/77f317c2-a344-4db8-8f1a-2f9d3127fc53)
 We can now see the graph after each bytecode is parsed. The graphs look quite large and a little messy, as they are not yet cleaned up.
 Personally, I find IGV good to get an overview over the graph, but when it comes to specific questions I prefer to debug directly using RR, where I have more fine-grained
@@ -209,14 +209,16 @@ control and see how it links to the C++ code of the compiler.
 **Using the RR Debugger**
 
 Many are familiar with [gdb](https://en.wikipedia.org/wiki/GNU_Debugger), a commonly used debugger for C / C++ / assembly.
-[rr](https://en.wikipedia.org/wiki/Rr_(debugging)) is provides an enhancement to gdb, by allowing reverse-execution.
+[rr](https://en.wikipedia.org/wiki/Rr_(debugging)) provides an enhancement to gdb, by allowing reverse-execution.
 This has been an essencial tool when debugging the C2 compiler:
 I often see a state of the IR, and wonder how we got there.
 Then I can set watchpoints or breakpoints, and let rr reverse-continue, leading
 me to an earlier state that hopefully gives me more information about what happened
 and why.
 
-You should probably consult an online tutorial if you have never used it. I will simply present how I use it below, but that
+You should probably consult an online tutorial if you have never used it.
+Essencially, it supports the "navigation" commands from gdb, but you can put `reverse-` in from to go backwards (e.g. `reverse-step`, `reverse-continue`, `reverse-next`).
+I will simply present how I use it below, but that
 will not give you a complete picture of what you can do with rr.
 
 Personally, I have made the experience that the `fastdebug` build of Hotspot is much faster than the `slowdebug`, but for debugging
@@ -228,7 +230,7 @@ rr ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compile
 ```
 
 Once recorded, we can `rr replay` this run as many times as we would like, and it is always exactly the same. The recording allows us also to do reverse execution, since
-the debugger has a history it traverse forward and backward. On my system, this looks like this:
+the debugger has a history it can traverse forward and backward. On my system, this looks like this:
 ```
 $ rr replay
 GNU gdb (Ubuntu 9.2-0ubuntu1~20.04.2) 9.2
@@ -288,7 +290,10 @@ warning: Source file is more recent than executable.
 (rr) 
 ```
 Once `rr replay` starts for `java`, it tends to break at `_start`. At this point it has not yet loaded the JVM code, and so we can not yet
-set breakpoints. So I `continue` (or simply `c`) once. Now it traps at a `SIGSEGV`, which is expected. Since the symbols are now all
+set breakpoints. So I `continue` (or simply `c`) once. Now it traps at a `SIGSEGV`, which is expected (the JVM for example uses implicit null-checks,
+i.e. assumes a reference is not null, but when it happens to be null the signal-handler catches this and takes the exception path).
+If you get too many `SIGSEGV`, you can skip and silence them with `handle SIGSEGV nostop noprint`.
+Since the symbols are now all
 available, I can set a breakpoint at `Compile::Optimize` with `b Optimize`. Continuing forward once more with `c`, we hit the `Breakpoint 1`
 at `Compile::Optimize`.
 
@@ -330,13 +335,13 @@ We can also get a backtrace:
 ```
 
 We can navigate up and down the backtrace with `up` and `down`. If we go `up` one level, we see that in `Compile::Compile`
-there is a lot of code, but essencially we get a `ciMethod* target`, for which we:
+there is a lot of code, but essentially we get a `ciMethod* target`, for which we:
 - Parse and potentially inline code recursively. This gives us the C2 IR.
 - `Optimize`: this is where the heavier optimizations take place.
 - `Code_Gen`: we generate machine code from the IR.
 
 Let us look at the IR at the start of `Compile::Optimize`:
-```bash
+```
 (rr) p find_nodes_by_dump("")
   0  Root  === 0 66  [[ 0 1 3 52 50 ]] 
   1  Con  === 0  [[ ]]  #top
@@ -377,6 +382,8 @@ dist dump
 $3 = void
 (rr)
 ```
+The `dump_bfs` has a number of possible uses, feel free to call it with `dump_bfs(1,0,"h")` to read the help message.
+The `#` character enables colored printing for example.
 
 We can also look at inputs of nodes like this:
 ```
@@ -390,8 +397,9 @@ If we want to find out where the constant-folding happened, we need to step back
 But manually stepping backwards would be extremely tedious.
 
 But we know that the constant `303` is introduced from the addition `202 + 101`, and the input of node
-`51 MulI` must be set after that. We are interested when this link has changed. I get there by
-setting a watchpoint on the memory location of `_in[2]`:
+`51 MulI` must be set after that. We are interested when this link has changed. In the JVM C++ code of `node.hpp`,
+we can see that the input-edges of a `Node` are stored in the `_in` array. I can track changes on such
+and input-edge by setting a watchpoint on the memory location of `_in[2]`:
 
 ```
 (rr) p find_node(51)->in(2)
@@ -450,7 +458,7 @@ And further up from that we see that this happens during `Parse::do_one_bytecode
 
 Let's look at all these steps in turn.
 
-In `Parse::do_one_bytecode`, we seem to be parsing an `iadd` bytecode:
+In `Parse::do_one_bytecode`, we seem to be parsing an `iadd` bytecode ([see parse2.cpp](https://github.com/openjdk/jdk/blob/cede30416f9730b0ca106e97b3ed9a25a09d3386/src/hotspot/share/opto/parse2.cpp#L2230-L2233)):
 ```cpp
 case Bytecodes::_iadd:
   b = pop(); a = pop();
@@ -462,7 +470,7 @@ This does what the bytecode is supposed to do:
 - Compute the addition: here we create an `AddINode`, and already GVN transform it.
 - `push` the result back onto the stack.
 
-In `PhaseGVN::transform` we already perform some local optimizations:
+In `PhaseGVN::transform` we already perform some local optimizations ([see phaseX.hpp](https://github.com/openjdk/jdk/blob/cede30416f9730b0ca106e97b3ed9a25a09d3386/src/hotspot/share/opto/phaseX.cpp#L674-L741)):
 - `apply_ideal` iteratively calls `Node::Ideal` (with `can_reshape` disabled, more about that later): this tries to construct a more "ideal" (canonicalized and/or cheaper) subgraph.
 - `Node::Value`: compute a tighter type, possibly constant folding the node (see `singleton`).
 - `Node::Identity`: tries to find another node that "does the same thing", and replaces the node with that node.
@@ -471,7 +479,7 @@ GVN is very important, as it canonicalizes the graph in preparation for other op
 And it performs local optimizations, such as constant folding.
 
 Now let us look at the lowest part of the backtrace, where the idealization happens.
-In `AddNode::IdealIL`, we see that we have matched some `Associative` pattern.
+In `AddNode::IdealIL`, we see that we have matched some `Associative` pattern ([see addnode.cpp](https://github.com/openjdk/jdk/blob/cede30416f9730b0ca106e97b3ed9a25a09d3386/src/hotspot/share/opto/addnode.cpp#L345-L377)).
 ```
 (rr) p this->dump_bfs(2,0,"#")
 dist dump
@@ -557,7 +565,7 @@ public class Test2 {
 ```
 
 Here the generated bytecode:
-```bash
+```
 javac Test2.java
 javap -c Test2.class
 
@@ -599,7 +607,7 @@ public class Test2 {
 This is just to show that `javac` did not yet do any of the transformations ;)
 
 And here the generated IR after the transformations:
-```bash
+```
 java -XX:CompileCommand=printcompilation,Test2::* -XX:CompileCommand=compileonly,Test2::test* -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test2.java
 CompileCommand: PrintCompilation Test2.* bool PrintCompilation = true
 CompileCommand: compileonly Test2.test* bool compileonly = true

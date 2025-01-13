@@ -265,7 +265,7 @@ The other nodes are not relevant for us now, and we will come back to some of th
 
 **A first Look at generated Assembly Code**
 
-With `-XX:CompileCommand=print,Test::test` we can print a lot of interesting information from the compilation:
+With `-XX:CompileCommand=print,Test::test` we can print a lot of interesting information from the compilation. Below you can see an example. We will ignore most of it, and pick out what is interesting for now.
 ```bash
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true

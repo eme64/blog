@@ -225,21 +225,30 @@ In the list below I will explain some of the steps, and others I will simply `sk
 - `PhaseRenumberLive`: remove useless nodes, and renumber the `Node::_idx`. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows the `_idx` to be more compact, and that allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 - `remove_root_to_sfpts_edges`: skip.
 -`do_iterative_escape_analysis` / `ConnectionGraph`: Escape Analysis is important to detect allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
--`PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. We will look at loop optimizations in a future blog post. But here a quick overview for `PhaseIdealLoop::build_and_optimize`:
-  - `build_loop_tree`: analyze the loop structures: detect loops, loop bodies and dominator information.
+-`PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. Here an overview for `PhaseIdealLoop::build_and_optimize`:
+  - `build_loop_tree`: analyze the loop structures: detect loops and compute dominator information.
   - `beautify_loops`: canonicalize the loop structures, needs to rerun `build_loop_tree` afterwards.
-  - `build_loop_early`: TODO
-  - `counted_loop`: TODO
-  - `eliminate_useless_zero_trip_guard`: TODO
-  - `process_expensive_nodes`: TODO
+  - `build_loop_early`: Determine the `early` loop that a data node belongs to.
+  - `counted_loop`: calls `is_counted_loop` which tries to convert `LoopNode` loops to `CountedLoopNode` loops, i.e. they are converted to a canonical counted loop shape. A critical guarantee for counted loops is that the iv phi will never overflow at runtime.
+  - `eliminate_useless_zero_trip_guard`: If a post or main loop is removed due to an assert predicate, the opaque that guards the loop is not needed anymore.
+  - `process_expensive_nodes`: "expensive" nodes have a control input to force them to be only on certain paths and not slow down others. We need loop information to common up "expensive" nodes while not slowing down any path.
   - `eliminate_useless_predicates`: Remove predicates that we know will never be used.
-  - `do_maximally_unroll`: TODO
-  - `optimize_loops`: TODO
+  - `do_maximally_unroll`: take steps towards full unrolling of the loop, if the exact trip-count is known and low enough.
+  - `bs->optimize_loops`: GC barrier optimizations, skip.
   - `reassociate_invariants`: reassociate invariants (a canonicalization) in preparation for `split_thru_phi` (later optimization).
-  - `split_if_with_blocks`: TODO
-  - `loop_predication`: TODO
+  - `split_if_with_blocks`: This is a large "grab-bag" set of split-trough optimizations, including `split_thru_phi` (e.g. `add(phi(x,y), z)` -> `phi(add(x, z), add(y, z))`).
+  - `loop_predication`: Insert hoisted check predicates for null checks and range checks etc.
   - `do_intrinsify_fill`: Detect loops shapes that fill arrays, replace them with a call to an array fill intrinsic.
-  - `iteration_split`: TODO
+  - `iteration_split`: perform various iteration splitting transformations:
+    - `compute_trip_count`: TODO
+    - `do_one_iteration_loop`: TODO
+    - `do_remove_empty_loop`: remove loops that have nothing in the loop body.
+    - `partial_peel`: TODO
+    - `do_peeling`: TODO
+    - `do_unswitching`: TODO
+    - `duplicate_loop_backedge`: TODO
+    - `create_loop_nest`: TODO
+    - TODO
   - `auto_vectorize`: Auto-vectorize loops (must already have been pre-main-post-ed, and unrolled).
   - `mark_parse_predicate_nodes_useless`: Up to now, all optimizations with predicates should have been performed. Remove the predicates, and maybe some loop optimizations that do not need predicates are now unlocked.
   - Note: `major_progress` gets set as soon as a loop optimization is performed that breaks the loop structure, and would require IGVN to be rerun to clean the graph, and `build_loop_tree` to recompute the loop structures.

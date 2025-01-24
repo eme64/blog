@@ -226,9 +226,23 @@ In the list below I will explain some of the steps, and others I will simply `sk
 - `remove_root_to_sfpts_edges`: skip.
 -`do_iterative_escape_analysis` / `ConnectionGraph`: Escape Analysis is important to detect allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
 -`PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. We will look at loop optimizations in a future blog post. But here a quick overview for `PhaseIdealLoop::build_and_optimize`:
-  - `build_loop_tree`: analyze the loop structures.
-  - `beautify_loops`: canonicalize the loop structures.
-  - TODO
+  - `build_loop_tree`: analyze the loop structures: detect loops, loop bodies and dominator information.
+  - `beautify_loops`: canonicalize the loop structures, needs to rerun `build_loop_tree` afterwards.
+  - `build_loop_early`: TODO
+  - `counted_loop`: TODO
+  - `eliminate_useless_zero_trip_guard`: TODO
+  - `process_expensive_nodes`: TODO
+  - `eliminate_useless_predicates`: Remove predicates that we know will never be used.
+  - `do_maximally_unroll`: TODO
+  - `optimize_loops`: TODO
+  - `reassociate_invariants`: reassociate invariants (a canonicalization) in preparation for `split_thru_phi` (later optimization).
+  - `split_if_with_blocks`: TODO
+  - `loop_predication`: TODO
+  - `do_intrinsify_fill`: Detect loops shapes that fill arrays, replace them with a call to an array fill intrinsic.
+  - `iteration_split`: TODO
+  - `auto_vectorize`: Auto-vectorize loops (must already have been pre-main-post-ed, and unrolled).
+  - `mark_parse_predicate_nodes_useless`: Up to now, all optimizations with predicates should have been performed. Remove the predicates, and maybe some loop optimizations that do not need predicates are now unlocked.
+  - Note: `major_progress` gets set as soon as a loop optimization is performed that breaks the loop structure, and would require IGVN to be rerun to clean the graph, and `build_loop_tree` to recompute the loop structures.
 - `PhaseCCP`+ IGVN: TODO
 
 TODO `optimize_loops` -> many rounds of `PhaseIdealLoop`

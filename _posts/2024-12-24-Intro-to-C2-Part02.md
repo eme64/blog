@@ -13,7 +13,7 @@ In Part 2, we look at:
 - A simple "idealization" of `101 * a + 202 * a` to `303 * a`.
 - Exercises for the Reader: a few more transformations for the reader to explore (please discuss them in the comments section!).
 
-[Skip forward to Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
+[Skip forward to Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html)
 
 **A new Example: inlining and GVN during parsing**
 
@@ -666,7 +666,7 @@ and step through the code.
 
 You can put your observations in the comment section below, and discuss the solutions.
 
-[Continue with Part 3](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part03.html)
+[Continue with Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html)
 
 **Please leave a comment below**
 

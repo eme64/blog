@@ -220,17 +220,17 @@ In the list below I will explain some of the steps, and others I will simply `sk
 (That could reflect the importance of those parts for your understanding at the beginner level, or it may just reflect my ignorance).
 
 - `process_for_unstable_if_traps`: skip.
-- `inline_incrementally`: we already inlined some code during parsing. But we can now decide to inline even more methods.
-- `eliminate_boxing` / `inline_boxing_calls`: special case of incremental inlining for `valueOf` methods. For example, it helps unbox `Integer` to `int`.
+- Incremental inlining: `inline_incrementally`: we already inlined some code during parsing. But we can now decide to inline even more methods.
+- Boxing Elimination: `eliminate_boxing` / `inline_boxing_calls`: special case of incremental inlining for `valueOf` methods. For example, it helps unbox `Integer` to `int`.
 - `remove_speculative_types`: skip.
 - `cleanup_expensive_nodes`: skip.
 - `PhaseVector`: helps unbox the boxed vector operations from the VectorAPI.
 - `PhaseRenumberLive`: remove useless nodes, and renumber the `Node::_idx`. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows the `_idx` to be more compact, and that allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 - `remove_root_to_sfpts_edges`: skip.
 
-- `do_iterative_escape_analysis` / `ConnectionGraph`: Escape Analysis is important to detect allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
+- Excape Analysis: `do_iterative_escape_analysis` / `ConnectionGraph`: detects allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
 
-- `PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
+- Loop Optimizations: `PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
   - Detection of loops, canonicalization to `CountedLoop` (loop trip-count phi does not overflow).
   - Turning long-counted-loops into int counted-loops.
   - Remove empty loops.
@@ -243,21 +243,16 @@ In the list below I will explain some of the steps, and others I will simply `sk
     - Post-loop used to handle left-over iterations.
     - RangeCheck elimination: main-loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
   - Auto vectorization (main-loop).
-- `PhaseCCP`+ IGVN: TODO
-
-TODO `optimize_loops` -> many rounds of `PhaseIdealLoop`
-
-TODO `process_for_post_loop_opts_igvn`
-
-TODO `PhaseMacroExpand`
-
-TODO `expand_barriers`
-
-TODO `optimize_logic_cones`
-
-TODO `process_late_inline_calls_no_inline`
-
-TODO `final_graph_reshaping`
+- Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN. TODO
+- More Loop Optimiztaions: `optimize_loops`: many rounds of `PhaseIdealLoop`.
+- `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimzations until after loop opts, for various reasons, including:
+  - Some optimizations would make loop optimizations impossible or more difficult.
+  - Some nodes are needed for loop opts, and can be removed after (e.g. `Opaque` nodes).
+- Macro Expansion: `PhaseMacroExpand`: TODO
+- Barrier Expansion: `expand_barriers`: TODO
+- `optimize_logic_cones`: TODO
+- `process_late_inline_calls_no_inline`: TODO
+- `final_graph_reshaping`: TODO
 
 [Continue with Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
 

@@ -228,9 +228,9 @@ In the list below I will explain some of the steps, and others I will simply `sk
 - `PhaseRenumberLive`: remove useless nodes, and renumber the `Node::_idx`. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows the `_idx` to be more compact, and that allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 - `remove_root_to_sfpts_edges`: skip.
 
--`do_iterative_escape_analysis` / `ConnectionGraph`: Escape Analysis is important to detect allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
+- `do_iterative_escape_analysis` / `ConnectionGraph`: Escape Analysis is important to detect allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
 
--`PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
+- `PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
   - Detection of loops, canonicalization to `CountedLoop` (loop trip-count phi does not overflow).
   - Turning long-counted-loops into int counted-loops.
   - Remove empty loops.

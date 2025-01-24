@@ -213,19 +213,16 @@ set some if-condition to `true`, and then rely on `IGVN` to constant fold the co
 Getting the graph back into a canonical state is important, because other optimizations rely on a canonical state of the graph:
 this simplifies the patterns the optimizations need to look for.
 
-TODO `process_for_unstable_if_traps`
+In the list below I will explain some of the steps, and others I will simply `skip`, since I do not know enough about them
+(That could reflect the importance of those parts for your understanding at the beginner level, or it may just reflect my ignorance).
 
-TODO `inline_incrementally`
-
-TODO `eliminate_boxing`
-
-TODO `remove_speculative_types`
-
-TODO `cleanup_expensive_nodes`
-
-TODO `PhaseVector`
-
-TODO `PhaseRenumberLive`
+- `process_for_unstable_if_traps`: skip.
+- `inline_incrementally`: we already inlined some code during parsing. But we can now decide to inline even more methods.
+- `eliminate_boxing` / `inline_boxing_calls`: special case of incremental inlining for `valueOf` methods. For example, it helps unbox `Integer` to `int`.
+- `remove_speculative_types`: skip.
+- `cleanup_expensive_nodes`: skip.
+- `PhaseVector`: helps unbox the boxed vector operations from the VectorAPI.
+- `PhaseRenumberLive`: remove useless nodes, and renumber the `Node::_idx`. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows the `_idx` to be more compact, and that allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 
 TODO `remove_root_to_sfpts_edges`
 

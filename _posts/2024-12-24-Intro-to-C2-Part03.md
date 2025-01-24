@@ -184,9 +184,70 @@ In the logs we can find a few interesting things:
 
 Let us now turn our attention to the C2 optimization part, i.e. `Compile::Optimize` in
 [compile.cpp](https://github.com/openjdk/jdk/blob/cede30416f9730b0ca106e97b3ed9a25a09d3386/src/hotspot/share/opto/compile.cpp#L2219-L2505).
-First, we might notice the `TracePhase` all throughout `Compile::Optimize`.
+I will walk through `Compile::Optimize`, the order is slightly different to that in `CITime`, unfortunately.
 
-TODO
+
+First, we might notice the `TracePhase` all throughout `Compile::Optimize`, which correspond to the measurements in `CITime`.
+You can easily `grep` for them:
+```
+grep _t_optimizer src/hotspot/share/ -r
+...
+src/hotspot/share/opto/phase.cpp:    tty->print_cr ("       Optimize:            %7.3f s", timers[_t_optimizer].seconds());
+...
+grep _t_iterGVN src/hotspot/share/ -r
+...
+src/hotspot/share/opto/phase.cpp:    tty->print_cr ("         GVN 1:               %7.3f s", timers[_t_iterGVN].seconds());
+src/hotspot/share/opto/phase.cpp:    tty->print_cr ("         GVN 2:               %7.3f s", timers[_t_iterGVN2].seconds());
+...
+```
+
+We start with a first round of `PhaseIterGVN` (or just `IGVN`). This is essencially an extended version of GVN (`PhaseGVN`).
+Compared to `PhaseGVN`, the `can_reshape` flag is enabled for `IGVN`, which allows `Node::Ideal` optimizations to perform
+additional "reshaping" optimizations.
+Further, `IGVN` is iterative. We have a `igvn_worklist`, that holds all nodes that we should still transform.
+And when a node is transformed (using `Ideal`, `Value`, or `Identity`), then its neighbours are added to the `igvn_worklist`,
+since they may now have new optimization opportunities. For example, constants can propagate through the graph this way.
+`IGVN` is also used after most other optimizations (escape analysis, loop optimizations, etc), to clean up the graph
+again, and bring it into a canonical form again. This simplifies those other optimizations, since they can for example just
+set some if-condition to `true`, and then rely on `IGVN` to constant fold the control graph, and remove the `false` path.
+Getting the graph back into a canonical state is important, because other optimizations rely on a canonical state of the graph:
+this simplifies the patterns the optimizations need to look for.
+
+TODO `process_for_unstable_if_traps`
+
+TODO `inline_incrementally`
+
+TODO `eliminate_boxing`
+
+TODO `remove_speculative_types`
+
+TODO `cleanup_expensive_nodes`
+
+TODO `PhaseVector`
+
+TODO `PhaseRenumberLive`
+
+TODO `remove_root_to_sfpts_edges`
+
+TODO `do_iterative_escape_analysis` / `ConnectionGraph`
+
+TODO `PhaseIdealLoop` (first 3 rounds)
+
+TODO `PhaseCCP`+ IGVN
+
+TODO `optimize_loops` -> many rounds of `PhaseIdealLoop`
+
+TODO `process_for_post_loop_opts_igvn`
+
+TODO `PhaseMacroExpand`
+
+TODO `expand_barriers`
+
+TODO `optimize_logic_cones`
+
+TODO `process_late_inline_calls_no_inline`
+
+TODO `final_graph_reshaping`
 
 [Continue with Part 4](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part04.html)
 

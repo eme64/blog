@@ -9,10 +9,13 @@ I assume that you have already looked at
 [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html).
 
 In Part 3, we look at:
-- TODO
+- TODO this is still in draft mode TODO
 
 [Skip forward to Part 4](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part04.html)
 
+TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+This is a draft !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
 **Recap from Part 2**
 
@@ -248,7 +251,14 @@ In the list below I will explain some of the steps, and others I will simply `sk
     - `do_unswitching`: TODO
     - `duplicate_loop_backedge`: TODO
     - `create_loop_nest`: TODO
-    - TODO
+    - `compute_profile_trip_cnt`: TODO
+    - `do_unswitching`: TODO
+    - `do_maximally_unroll`: TODO
+    - `duplicate_loop_backedge`: TODO
+    - `insert_pre_post_loops`: TODO
+    - `do_range_check`: TODO
+    - `insert_vector_post_loop`: TODO
+    - `insert_vector_post_loop`: TODO
   - `auto_vectorize`: Auto-vectorize loops (must already have been pre-main-post-ed, and unrolled).
   - `mark_parse_predicate_nodes_useless`: Up to now, all optimizations with predicates should have been performed. Remove the predicates, and maybe some loop optimizations that do not need predicates are now unlocked.
   - Note: `major_progress` gets set as soon as a loop optimization is performed that breaks the loop structure, and would require IGVN to be rerun to clean the graph, and `build_loop_tree` to recompute the loop structures.

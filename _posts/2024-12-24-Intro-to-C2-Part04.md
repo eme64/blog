@@ -10,13 +10,9 @@ I assume that you have already looked at
 [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html).
 
 In Part 4, we look at:
-- TODO loop optimizations TODO
+- Overview over `PhaseIdealLoop` / loop optimizations.
 
 [Skip forward to Part 5](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part05.html)
-
-TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
-This is a draft !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
 **Introduction to Loop Optimizations**
 
@@ -150,7 +146,11 @@ Let us make a few observations about the logs above:
 
 **More Details about Loop Optimizations**
 
-`PhaseIdealLoop` - 3 specific individualt rounds, then CCP + IGVN, then `optimize_loops` with many rounds of loop-opts.
+At first, we only execute 3 rounds of loop optimizations.
+Then we perform CCP + IGVN because the first loop optimizations such as peeling and unrolling can often
+allow us to narrow down types or constant fold control flow inside the loop.
+Then, we perform many more iterations of loop optimizations, until no loop can further be optimized or we hit
+a loop optimization round limit.
 
 Here an overview for `PhaseIdealLoop::build_and_optimize`:
 - `build_loop_tree`: analyze the loop structures: detect loops and compute dominator information.

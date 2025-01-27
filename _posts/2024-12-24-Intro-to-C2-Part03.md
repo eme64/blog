@@ -253,7 +253,9 @@ In the list below I will explain some of the steps, and others I will simply `sk
 - `process_late_inline_calls_no_inline`: more inlining.
 - `final_graph_reshaping`: Some final reshaping before we go to to `Code_Gen`.
 
-[Continue with Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
+
+[In Part 4 we look at Loop Optimizations.](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
+
 
 **Please leave a comment below**
 

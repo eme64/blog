@@ -9,13 +9,10 @@ I assume that you have already looked at
 [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html).
 
 In Part 3, we look at:
-- TODO this is still in draft mode TODO
+- `CITime` flag: measure compile time, split up into different phases.
+- Overview of the optimization phases (i.e. `Compile::Optimize`).
 
 [Skip forward to Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
-
-TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
-This is a draft !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
 **Recap from Part 2**
 
@@ -175,12 +172,12 @@ In the logs we can find a few interesting things:
 - We see that the `C2 Compile Time` is broken down into multiple parts, and those are broken down recursively.
   - `Parse`: parsing of bytecode to C2 IR graph, including GVN.
   - `Optimize`: we will look at more details below.
-  - `Matcher`: TODO
-  - `Scheduler`: TODO
-  - `Regalloc`: register allocation.
-  - `Block Ordering`: TODO
-  - `Peephole`: TODO
-  - `Code Emission`: TODO
+  - `Matcher`: Map Ideal to Machine (mach) nodes.
+  - `Scheduler`: `PhaseCFG`, create a CFG graph of blocks.
+  - `Regalloc`: `PhaseChaitin`, register allocation.
+  - `Block Ordering`: `PhaseBlockLayout` / `PhaseCFG`, remove empty blocks and order the blocks.
+  - `Peephole`: peephole (local) optimizations on register allocated basic blocks - only works on mach nodes.
+  - `Code Emission`: Convert IR nodes to instruction bits in a code buffer.
 - Most time is spent on `C2 Compile Time` -> `Optimize` -> `IdealLoop`, i.e. loop optimizations. This is not surprising given that our example `Test::test` consists only of a loop.
 
 **Overview for Compile::Optimize**
@@ -243,16 +240,18 @@ In the list below I will explain some of the steps, and others I will simply `sk
     - Post-loop used to handle left-over iterations.
     - RangeCheck elimination: main-loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
   - Auto vectorization (main-loop).
-- Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN. TODO
+- Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN.
+  - IGVN is pessimistic, i.e. starts with the whole range of a type (we confusingly call it BOTTOM) and tries to prove a narrower type.
+  - CCP is optimistic, i.e. starts with an empty type (we confusingly call it TOP), and widens the type based on its inputs.
 - More Loop Optimiztaions: `optimize_loops`: many rounds of `PhaseIdealLoop`.
 - `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimzations until after loop opts, for various reasons, including:
   - Some optimizations would make loop optimizations impossible or more difficult.
   - Some nodes are needed for loop opts, and can be removed after (e.g. `Opaque` nodes).
-- Macro Expansion: `PhaseMacroExpand`: TODO
-- Barrier Expansion: `expand_barriers`: TODO
-- `optimize_logic_cones`: TODO
-- `process_late_inline_calls_no_inline`: TODO
-- `final_graph_reshaping`: TODO
+- Macro Expansion: `PhaseMacroExpand`: expand or remove macro nodes.
+- Barrier Expansion: `expand_barriers`: expand GC barriers.
+- `optimize_logic_cones`: Optimization for vector logic operations.
+- `process_late_inline_calls_no_inline`: more inlining.
+- `final_graph_reshaping`: Some final reshaping before we go to to `Code_Gen`.
 
 [Continue with Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
 

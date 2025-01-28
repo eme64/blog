@@ -11,7 +11,13 @@ I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal
   - It generalizes the pointer parsing, and allows more patterns to be analyzed for static aliasing analysis (adjacency and overlap queries).
 - In Review: [JDK-8323582](https://bugs.openjdk.org/browse/JDK-8323582) C2 SuperWord AlignVector: misaligned vector memory access with unaligned native memory
   - Runtime Check for alignment check when using `-XX:+AlignVector` (platforms that require strict alignment). Arrays, like all Java Objects, are `ObjectAlignmentInBytes` aligned (usually 8 byte alignment). But native memory (e.g. with MemorySegment) does not give us any such alignment guarantees. So I'm introducing a Predicate version (i.e. deopt when the runtime check fails) and a multiversioning approach (if the check passes enter the fast loop where we assume alignment, else take the slow loop where we have no alignment assumption and may not be able to vectorize as a result).
-- TODO
+  - The Predicate and Multiversioning infrastructure can then be reused for [JDK-8324751](https://bugs.openjdk.org/browse/JDK-8324751) C2 SuperWord: Aliasing Analysis runtime check.
+- WIP: [JDK-8340093](https://bugs.openjdk.org/browse/JDK-8340093) C2 SuperWord: implement cost model
+  - With the goal to have a more accurate heuristic if we should vectorize reductions (can have additional cost in the loop body).
+  - Will also allow the vectorization of other shapes: shuffle, pack, unpack etc inside the loop. We need to know if the vectorized loop body is expected to be faster (have overall fewer / cheaper instructions) than the scalar loop.
+  - If-conversion would also require us to perform such cost-modeling.
+- WIP: [JDK-8343597](https://bugs.openjdk.org/browse/JDK-8343597) C2 SuperWord: RelaxedMath for faster float reductions
+- WIP: Investigate RangeCheck elimination and other issues for vectorization of MemorySegment loops ([JDK-8331659](https://bugs.openjdk.org/browse/JDK-8331659) and others).
 
 Legend:
 - Blue: RFE

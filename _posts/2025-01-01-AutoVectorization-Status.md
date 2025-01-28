@@ -21,11 +21,13 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
 - WIP: [JDK-8343597](https://bugs.openjdk.org/browse/JDK-8343597) C2 SuperWord: RelaxedMath for faster float reductions
 - WIP: Investigate RangeCheck elimination and other issues for vectorization of MemorySegment loops ([JDK-8331659](https://bugs.openjdk.org/browse/JDK-8331659) and others).
 
+**Graphical Overview**
+
 Legend:
-- Blue: RFE
-- Red: Bug
-- Gray: Future Work (RFE)
-- Orange: Priority
+- Blue: RFE (light blue: integrated, dark blue: WIP).
+- Red: Bug (light red: integrated, dark red: open/WIP).
+- Gray: Future Work (RFE).
+- Orange: Priority.
 
 <p>Navigate: [+/-] Zoom, [F] toggle Fullscreen</p>
 <iframe id = "issue_graph" height="800px" width="100%" resize="both" overflow="auto">

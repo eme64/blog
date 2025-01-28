@@ -5,6 +5,14 @@ date: 2025-01-01
 
 I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal is to help myself and others understand the different improvements and their dependencies.
 
+**January 2025**
+
+- Integrated: [JDK-8343685](https://bugs.openjdk.org/browse/JDK-8343685) C2 SuperWord: refactor VPointer with MemPointer
+  - It generalizes the pointer parsing, and allows more patterns to be analyzed for static aliasing analysis (adjacency and overlap queries).
+- In Review: [JDK-8323582](https://bugs.openjdk.org/browse/JDK-8323582) C2 SuperWord AlignVector: misaligned vector memory access with unaligned native memory
+  - Runtime Check for alignment check when using `-XX:+AlignVector` (platforms that require strict alignment). Arrays, like all Java Objects, are `ObjectAlignmentInBytes` aligned (usually 8 byte alignment). But native memory (e.g. with MemorySegment) does not give us any such alignment guarantees. So I'm introducing a Predicate version (i.e. deopt when the runtime check fails) and a multiversioning approach (if the check passes enter the fast loop where we assume alignment, else take the slow loop where we have no alignment assumption and may not be able to vectorize as a result).
+- TODO
+
 Legend:
 - Blue: RFE
 - Red: Bug

@@ -36,7 +36,7 @@ Here some example optimizations:
 
 Additionally, there are some "splitting" optimizations: we split operations (e.g. add) through phis, i.e. to both merged branches, if our heuristic says that this is profitable (e.g. can be constant folded on one path). We also split ifs through phis. We do these "splitting" operations during loop opts because this allows us to have loop structure information that is not available during IGVN.
 
-**Example**
+**Example with TraceLoopOpts**
 
 Let us look at the example from [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html), and enable loop opts tracing.
 

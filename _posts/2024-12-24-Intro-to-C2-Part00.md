@@ -3,11 +3,11 @@ title: "Introduction to HotSpot JVM C2 JIT Compiler, Part 0"
 date: 2024-12-24
 ---
 
-I have now worked at Oracle for 3 years. I learned a lot during this time, especially considering that I focused mostly on
-HPC (high-performance computing) and theoretical computer science in my education at ETH, and had no formal education in
-compilers. Over the last years, I had the opportunity to learn a lot from my fellow C2 engineers, at Oracle but also from
+I have now worked at Oracle for 3 years. I've been learning a lot during this time, especially considering that I focused mostly on
+HPC (high-performance computing) and theoretical computer science in my education at ETH Zürich, and had no formal education in
+compilers. Over the last years, I had the opportunity to learn a lot from my fellow C2 engineers at Oracle but also from
 other companies and even individual contributors working on OpenJDK. I would now like to summarize my understanding of the
-C2 Compiler in the HotSpot JVM, and hopefully make it easier for others to break into C2.
+C2 Compiler in the HotSpot JVM, and hopefully make it easier for others to dive into C2.
 
 Target audiences:
 - New hires working on HotSpot's C2 Compiler.
@@ -25,7 +25,7 @@ Additionally:
 - Debugging C2 using [rr](https://github.com/rr-debugger/rr) (or GDB), and the help of JVM flags.
 - Analyzing the generated Assembly code: what did C2 do with my Java code?
 - Benchmarks: stand-alone (just a single Java file) or using JMH.
-- Testing: how to write good tests to verify optimizations are applied and create correct Assembly code (using IR framework, random inputs, etc).
+- Testing: how to write good tests to verify that optimizations are applied correctly on the IR and eventually produce correct Assembly code.
 
 **A note to new individual External Contributors**
 
@@ -34,8 +34,9 @@ companies involved with OpenJDK, but also individual contributors who work on C2
 
 You are very welcome to join the communal effort to improve HotSpot, and improve your own skills in the process. I personally can help you mostly with C2, because
 that is what I have been working on over the last years.
-People often have their own ideas: that is fantastic. But it is important to first discuss ideas, so you don't put a lot of time into something that then will be
-rejected in the code review. I would suggest you start by reaching out to us, and ask if there are any simple tasks where you can make a helpful contribution, and
+People often have their own ideas: that is fantastic. But it is important to first discuss ideas, so you don't put a lot of effort into something that will potentially be rejected in the code review.
+
+We highly encourage you to reach out to us, and ask if there are any simple tasks where you can make a helpful contribution, and
 learn the processes of code review.
 
 **Helpful Links**

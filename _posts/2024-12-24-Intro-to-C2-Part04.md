@@ -34,6 +34,8 @@ Here some example optimizations:
   - RangeCheck elimination: main-loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
 - Auto vectorization (main-loop).
 
+Additionally, there are some "splitting" optimizations: we split operations (e.g. add) through phis, i.e. to both merged branches, if our heuristic says that this is profitable (e.g. can be constant folded on one path). We also split ifs through phis. We do these "splitting" operations during loop opts because this allows us to have loop structure information that is not available during IGVN.
+
 **Example**
 
 Let us look at the example from [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html), and enable loop opts tracing.
@@ -167,22 +169,22 @@ Here an overview for `PhaseIdealLoop::build_and_optimize`:
 - `loop_predication`: Insert hoisted check predicates for null checks and range checks etc.
 - `do_intrinsify_fill`: Detect loops shapes that fill arrays, replace them with a call to an array fill intrinsic.
 - `iteration_split`: perform various iteration splitting transformations:
-  - `compute_trip_count`: TODO
-  - `do_one_iteration_loop`: TODO
+  - `compute_trip_count`: Compute the trip count if possible.
+  - `do_one_iteration_loop`: Convert a one iteration loop into straight-line code, i.e. remove the loop structure.
   - `do_remove_empty_loop`: remove loops that have nothing in the loop body.
-  - `partial_peel`: TODO
-  - `do_peeling`: TODO
-  - `do_unswitching`: TODO
-  - `duplicate_loop_backedge`: TODO
-  - `create_loop_nest`: TODO
-  - `compute_profile_trip_cnt`: TODO
-  - `do_unswitching`: TODO
-  - `do_maximally_unroll`: TODO
-  - `duplicate_loop_backedge`: TODO
-  - `insert_pre_post_loops`: TODO
-  - `do_range_check`: TODO
-  - `insert_vector_post_loop`: TODO
-  - `insert_vector_post_loop`: TODO
+  - `partial_peel`: partially peel the top portion of a loop, copying it to the loop entry and the backedge. This "rotates" the loop. The goal is to bring the exit test to the end of the loop, and to create a canonical (possibly counted) loop form.
+  - `do_peeling`: Peel the first iteration of a loop. Make a single-iteration copy of the loop, which is executed as straight-line code before the loop. That allows for some invariant checks to only be executed in the peeled iteration, and removed from the loop body.
+  - `do_unswitching`: move a loop-invariant check before the loop, copy the loop: the check inside the loops can fold to true in the true-loop and to false in the false-loop. This effectively removes that check from the loop, hoisting it before the loop.
+  - `duplicate_loop_backedge`: Sometimes multiple paths inside the loop merge (region) just before the exit check and backedge. It can be beneficial to split this region and duplicate the exit check, so that an inner (hopefully counted) loop  and an outer loop are created.
+  - `create_loop_nest`: Convert long counted loops to int counted loops. If possible, convert the long RangeChecks to int RangeChecks, which makes RangeCheck Elimination easier later on.
+  - `compute_profile_trip_cnt`: Compute the loop trip count from profile data.
+  - `insert_pre_post_loops`: Convert a normal counted loop into a pre, main, and post loop structure.
+    - The pre loop is used if strict alignment is required for vector memory accesses in the main loop: we keep iterating in the pre loop until we achieve alignment.
+    - The main loop is unrolled and possibly vectorized.
+    - The post loop handles any remaining iterations after the unrolled main loop.
+    - The pre and post loop can also be used to do RangeCheck Elimination: we remove the RangeCheck for the main loop, and execute any iterations where the RangeCheck could be out of bounds in the pre and post loop.
+  - `do_range_check`: Remove RangeChecks and other trip-counter vs loop-invariant tests. We do this using predicates before the loop, which deopt if they fail.
+  - `insert_vector_post_loop`: insert the vectorized drain loop, so we can super-unroll the vectorized main loop, and the vectorized drain loop can handle remaining iterations faster than just the post loop.
 - `auto_vectorize`: Auto-vectorize loops (must already have been pre-main-post-ed, and unrolled).
 - `mark_parse_predicate_nodes_useless`: Up to now, all optimizations with predicates should have been performed. Remove the predicates, and maybe some loop optimizations that do not need predicates are now unlocked.
 - Note: `major_progress` gets set as soon as a loop optimization is performed that breaks the loop structure, and would require IGVN to be rerun to clean the graph, and `build_loop_tree` to recompute the loop structures.

@@ -10,7 +10,7 @@ I assume that you have already looked at
 [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html).
 
 In Part 4, we look at:
-- Overview over `PhaseIdealLoop` / loop optimizations.
+- `PhaseIdealLoop` / loop optimizations.
 
 [Skip forward to Part 5](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part05.html)
 

@@ -5,6 +5,8 @@ date: 2025-01-01
 
 I present this graphical overview of the C2 AutoVectorizer (SuperWord). The goal is to help myself and others understand the different improvements and their dependencies.
 
+Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io/blog/2023/11/03/C2-AutoVectorizer-Improvement-Ideas.html).
+
 **January 2025**
 
 - Integrated: [JDK-8343685](https://bugs.openjdk.org/browse/JDK-8343685) C2 SuperWord: refactor VPointer with MemPointer

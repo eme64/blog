@@ -4,7 +4,7 @@ date: 2024-12-24
 ---
 
 I assume that you have already looked at [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part00.html),
-and that you have already cloned and [build the JDK](https://openjdk.org/groups/build/doc/building.html).
+and that you have already cloned and [built the JDK](https://openjdk.org/groups/build/doc/building.html).
 
 In Part 1, we look at:
 - Running a simple Java example.
@@ -105,33 +105,33 @@ public class Test {
          3: ireturn
 }
 ```
-For now, you do not need to understand this code. We see that there are 3 methods defined in the `Test` class:
-- `<init>`: This is the code of the default constructor, which calls the super-class `Object` constructor.
-- `main`:  We see some `invokevirtual` for `println`, an `invokestatic` for `test`, and a `goto 10` for the loop backedge.
+For now, you do not need to understand this bytecode in detail. On a high level, we see that there are 3 methods defined in the `Test` class:
+- `<init>`: This is the code of the default constructor, which calls the super-class `Object` constructor. Note that javac automatically added the default constructor for us even though we did not explicitly specify it.
+- `main`:  We see some `invokevirtual` for `println`, an `invokestatic` for `test`, and a `goto 10` at byte index 28 for the loop backedge.
 - `test`: The two `int` arguments are put into locals `0` and `1`. The `iload_0` and `iload_1` take those arguments from the locals, and push them onto the stack. `iadd` takes the two values from the stack, and puts their addition back on the stack. `ireturn` pops that value off the stack again, and returns it.
 
 If you are interested to learn more about Java Bytecode:
 - [Java Bytecode (Wikipedia)](https://en.wikipedia.org/wiki/List_of_Java_bytecode_instructions): helpful reference for all the bytecodes.
 - [asmtools](https://github.com/openjdk/asmtools): tool to assemble / disassemble class-files. When I am working on a bug where I am only provided a class-file, I often inspect the class-file with `jdis`, modify it, and compile it again with `jasm`. That way I can often even reconstruct the reproducer with Java code eventually.
 
-Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class-file. [This only works since JDK11](https://dev.java/learn/single-file-program/).
+Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class-file. [This only works since JDK 11](https://dev.java/learn/single-file-program/).
 
-Note 2: `.jar` files are simply a zip-directory of various `.class` files.
+Note 2: `.jar` files are simply zip-directories of various `.class` files.
 
 **Types of JDK Builds**
 
-Simplifying, there are 3 types of builds:
-- product: fast, but harder to debug with. Does not execute any asserts in the C++ VM code.
+The three most commonly involved build types in my daily work are:
+- product: fast, but harder to debug with. This is the build for Java users. Does not execute any asserts in the C++ VM code. We regularly add additional verification code in the form of assertions when changing or adding new VM code. These help to catch problems earlier. But they can slow down the execution of a Java program significantly. Therefore, we drop the assertion code in product builds for maximal performance.
 - (fast)debug: runs slower than product, but executes asserts, and allows debug VM flags.
-- slowdebug: runs slower than fastdebug, but has more symbols available which enables a better debugging esperience with GDB / RR.
+- slowdebug: runs slower than fastdebug. The C++ compiler runs with fewer optimizations, which makes it slower but it means that the VM has more symbols available, all variables are accessible, no inlining, etc., which enables a better debugging esperience with GDB / RR.
 
-The difference in these builds is mainly differing GCC optimization levels. And debug builds have some extra debugging flags available.
+The difference in these builds is mainly differing GCC optimization levels. And debug builds have some extra debugging flags available. And only debug builds execute asserts (i.e. additional verification).
 
 I tend to work with fastdebug by default, but then switch to slowdebug if GDB / RR behave in unexpected ways (e.g. if they do not break at the expected line).
 
 **VM CompileCommand printcompilation**
 
-Let us now continue with the example, and inspect which methods are compiled:
+Let us now continue with the example, and inspect which methods are compiled. This can be done by using a special `CompileCommand` flag that defines various additional compiler control options. `printcompilation` is one of them which prints compiled methods (for more details about `CompileCommand` use `java -XX:CompileCommand=help --version`).
 
 ```
 $ java -XX:CompileCommand=printcompilation,*::* Test.java
@@ -151,14 +151,15 @@ Done
 ```
 
 From this log, we can already see a lot about how HotSpot compiles and executes our code:
-- There are a lot of compilations that are not from our `Test.java`. They are triggered by the Java runtime and libraries for example.
-- The first column displays the time, when the compilation is issues in milli-seconds. `Test::test` is executed after `10876` milli-seconds.
-- The second column is the unique id of the compilation, which we can see counting up. It is not always perfectly in order.
+- There are a lot of compilations that are not from our `Test.java`. They are triggered by the Java runtime and libraries for example, during startup of the JVM until our `main()` method in `Test.java` is called.
+- The first column displays the time, when the compilation is issued in milliseconds. `Test::test` is executed after `10876` milliseconds.
+- The second column is the unique id of the compilation, which we can see counting up. Note that these ids are not always in perfect order due to compiling methods with multiple compiler threads concurrently and each taking a variable amount of time to complete.
 - The third column indicates which compiler was used. Tier 1-3 are used for C1, tier 4 is used for C2.
 - The fourth column display the name of the compiled method, and the size of its bytecode.
 
-Usually, we are only interested in the compilations of certain classes, here of `Test`.
-We can limit for which classes we enable `printcompilation`:
+Usually, we are only interested in the compilations of certain classes.
+We can limit the printed compilations to specific classes, for example our `Test` class.
+This can be done by adapting the `printcompilation` command like this:
 
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* Test.java
@@ -168,9 +169,9 @@ Run
 Done
 ```
 
-**Tiered Compilation, VM flags to control compilation**
+**Tiered Compilation and VM flags to control a compilation**
 
-In our execution above, we notice that from our `Test.java` only `Test::test` was ever compiled, and only with C1 (tier 1, 2, or 3).
+In our execution above, we notice that from `Test.java` only `Test::test` was ever compiled, and only with C1 (tier 1, 2, or 3).
 But we obviously are also running `Test::main`, so why does that method not get compiled?
 
 The HotSpot JVM executes your Java (byte-)code in one of these ways:

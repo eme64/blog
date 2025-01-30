@@ -16,7 +16,7 @@ In Part 3, we look at:
 
 **Recap from Part 2**
 
-In [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html), we saw that a C2 compilation has essencially 3 steps (see `Compile::Compile`):
+In [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html), we saw that a C2 compilation has essentially 3 steps (see `Compile::Compile`):
 - Parse and potentially inline code recursively. This gives us the C2 IR.
 - `Optimize`: this is where the heavier optimizations take place.
 - `Code_Gen`: we generate machine code from the IR.
@@ -33,7 +33,7 @@ Further, it already simplifies the IR graph, and keeps it smaller.
 **Getting an overview with the CITime flag**
 
 The `-XX:+CITime` flag collects timing information about compilation, i.e. it measures how much time was spent on which optimizations.
-A JIT compiler needs to have fast compilation, so that we do not spent too many compute resources on compilation that we could otherwise
+A JIT compiler needs to have fast compilation, so that we do not spend too many compute resources on compilation that we could otherwise
 spend on program execution.
 But at this point, the flag also gives us a nice overview over the C2 compilation steps.
 
@@ -201,11 +201,11 @@ src/hotspot/share/opto/phase.cpp:    tty->print_cr ("         GVN 2:            
 ...
 ```
 
-We start with a first round of `PhaseIterGVN` (or just `IGVN`). This is essencially an extended version of GVN (`PhaseGVN`).
+We start with a first round of `PhaseIterGVN` (or just `IGVN`). This is essentially an extended version of GVN (`PhaseGVN`).
 Compared to `PhaseGVN`, the `can_reshape` flag is enabled for `IGVN`, which allows `Node::Ideal` optimizations to perform
 additional "reshaping" optimizations.
 Further, `IGVN` is iterative. We have a `igvn_worklist`, that holds all nodes that we should still transform.
-And when a node is transformed (using `Ideal`, `Value`, or `Identity`), then its neighbours are added to the `igvn_worklist`,
+And when a node is transformed (using `Ideal`, `Value`, or `Identity`), then its neighbours (the transitive useses) are added to the `igvn_worklist`,
 since they may now have new optimization opportunities. For example, constants can propagate through the graph this way.
 `IGVN` is also used after most other optimizations (escape analysis, loop optimizations, etc), to clean up the graph
 again, and bring it into a canonical form again. This simplifies those other optimizations, since they can for example just
@@ -213,11 +213,11 @@ set some if-condition to `true`, and then rely on `IGVN` to constant fold the co
 Getting the graph back into a canonical state is important, because other optimizations rely on a canonical state of the graph:
 this simplifies the patterns the optimizations need to look for.
 
-In the list below I will explain some of the steps, and others I will simply `skip`, since I do not know enough about them
+In the list below I will explain some of the steps, and others I will simply skip, since I do not know enough about them
 (That could reflect the importance of those parts for your understanding at the beginner level, or it may just reflect my ignorance).
 
 - `process_for_unstable_if_traps`: skip.
-- Incremental inlining: `inline_incrementally`: we already inlined some code during parsing. But we can now decide to inline even more methods.
+- Incremental inlining (aka late inlining): `inline_incrementally`: we already inlined some code during parsing. But we can now decide to inline even more methods, by replacing the calls in the IR with the IR nodes from the call.
 - Boxing Elimination: `eliminate_boxing` / `inline_boxing_calls`: special case of incremental inlining for `valueOf` methods. For example, it helps unbox `Integer` to `int`.
 - `remove_speculative_types`: skip.
 - `cleanup_expensive_nodes`: skip.
@@ -225,7 +225,7 @@ In the list below I will explain some of the steps, and others I will simply `sk
 - `PhaseRenumberLive`: remove useless nodes, and renumber the `Node::_idx`. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows the `_idx` to be more compact, and that allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 - `remove_root_to_sfpts_edges`: skip.
 
-- Excape Analysis: `do_iterative_escape_analysis` / `ConnectionGraph`: detects allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead. Escape Analysis already requires an understanding of loop structures, so it performs a first round of `PhaseIdealLoop`.
+- Escape Analysis: `do_escape_analysis` / `ConnectionGraph`: detects allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead.
 
 - Loop Optimizations: `PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
   - Detection of loops, canonicalization to `CountedLoop` (loop trip-count phi does not overflow).
@@ -242,16 +242,16 @@ In the list below I will explain some of the steps, and others I will simply `sk
   - Auto vectorization (main-loop).
 - Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN.
   - IGVN is pessimistic, i.e. starts with the whole range of a type (we confusingly call it BOTTOM) and tries to prove a narrower type.
-  - CCP is optimistic, i.e. starts with an empty type (we confusingly call it TOP), and widens the type based on its inputs.
-- More Loop Optimiztaions: `optimize_loops`: many rounds of `PhaseIdealLoop`.
-- `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimzations until after loop opts, for various reasons, including:
+  - CCP is optimistic, i.e. starts with an empty type (we confusingly call it TOP), and widens the type based on the node's input types.
+- More Loop Optimisations: `optimize_loops`: many rounds of `PhaseIdealLoop`.
+- `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimsations until after loop opts, for various reasons, including:
   - Some optimizations would make loop optimizations impossible or more difficult.
   - Some nodes are needed for loop opts, and can be removed after (e.g. `Opaque` nodes).
 - Macro Expansion: `PhaseMacroExpand`: expand or remove macro nodes.
 - Barrier Expansion: `expand_barriers`: expand GC barriers.
 - `optimize_logic_cones`: Optimization for vector logic operations.
-- `process_late_inline_calls_no_inline`: more inlining.
-- `final_graph_reshaping`: Some final reshaping before we go to to `Code_Gen`.
+- `process_late_inline_calls_no_inline`: post-parse call devirtualization, where we strength-reduce a virtual call to a static call very late (usually we would do that at parsing time already) because we now got more information (a narrow receiver type) from optimizations that happened after parsing. See [JDK-8257211](https://bugs.openjdk.org/browse/JDK-8257211).
+- `final_graph_reshaping`: Some final reshaping before we go to `Code_Gen`.
 
 
 [In Part 4 we look at Loop Optimizations.](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)

@@ -10,6 +10,7 @@ In Part 1, we look at:
 - Running a simple Java example.
 - Compilation to Java bytecode with `javac`.
 - Product vs Debug builds.
+- Why JIT compilation?
 - Tiered Compilation.
 - Inspecting C2 IR and generated assembly code.
 
@@ -168,6 +169,27 @@ Run
 10405 1983       3       Test::test (4 bytes)
 Done
 ```
+
+**Why usa a Just In Time (JIT) Compiler?**
+
+An Ahead Of Time (AOT) compiler compiles the code once, and delivers an executable.
+With GCC, you compile your C code once, and distribute the executable.
+The executable can only be executed on platforms for which you compiled.
+You cannot execute a x64 executable on an aarch64 machine.
+If you used AVX512 assembly instructions in the executable, you can only execute it on machines that support those instructions.
+
+A Just In Time (JIT) compiler compiles the code at runtime.
+This opens a list of challenges and opportunities:
+- The compilation happens in parallel with execution. The compilation competes for resources with the execution. Thus, JIT compilers have stronger incentives for shorter compile times.
+- At startup, no code is compiled yet. Any executed code runs in interpreter mode, which is rather slow. It can take a while for the hot parts of the code to be compiled, and execution speed to increase.
+- Instead of distributing platform dependent executables, one can distribute platform agnostic source code (Java code or Java bytecode). The JIT compiler has full knowledge about the platform it is running on, and can generate code that is optimized for its exact CPU architecture.
+- Dynamically loading new code: The JVM allows new classes to be loaded at runtime, and their methods to be invoked. A AOT compiler would not have knowledge about the dynamic classes at compile time. A JIT compiler allows new code to be compiled at runtime, and thus to reach high throughput of execution of dynamic code.
+- New optimization opportunities: we can make speculative assumptions during a compilation, which may allow us to generate faster code. If a speculative assumption is violated at runtime, i.e. the speculation check fails, we can always deoptimize, and jump back to the interpreter. Some examples:
+  - If an interface only has a single implementation, we can use static calls instead of dynamic (i.e. virtual) calls. Should we ever load a second implementation of the interface, then we can recompile using dynamic calls.
+  - We can profile the execution in interpreter mode (and also in C1 mode), and use this profile information to guide our (C2) compilation. If a certain branch was never executed, we can simply avoid the compilation of that branch, and deoptimize should it ever be taken. This lowers the compile time, as we are compiling less code.
+  - If the profiler says that a null-check has never failed, we can use implicit null-checks: we remove the null-check, and if we ever get a segmentation fault (SIGSEGV) at that place from null dereferencing, we catch the signal and deoptimize, and throw the `NullPointerException` from the interpreter.
+
+Please also read this related article by Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
 
 **Tiered Compilation and VM flags to control a compilation**
 

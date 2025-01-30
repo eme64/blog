@@ -247,8 +247,8 @@ In the list below I will explain some of the steps, and others I will simply ski
 - `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimsations until after loop opts, for various reasons, including:
   - Some optimizations would make loop optimizations impossible or more difficult.
   - Some nodes are needed for loop opts, and can be removed after (e.g. `Opaque` nodes).
-- Macro Expansion: `PhaseMacroExpand`: expand or remove macro nodes.
-- Barrier Expansion: `expand_barriers`: expand GC barriers.
+- Macro Expansion: `PhaseMacroExpand`: Expands or removes macro nodes. Macro nodes are special nodes that represent complex operations that can not directly be mapped to machine (mach) nodes by the Matcher. Instead, they need to be expanded to other nodes first.
+- Barrier Expansion: `expand_barriers`: Expand GC barriers, special instructions inserted to support garbage collection. These include write barriers to track modified references and read barriers to ensure objects are correctly loaded before use. For more information, see [this great blog post](https://blog.ragozin.info/2011/06/understanding-gc-pauses-in-jvm-hotspots.html).
 - `optimize_logic_cones`: Optimization for vector logic operations.
 - `process_late_inline_calls_no_inline`: post-parse call devirtualization, where we strength-reduce a virtual call to a static call very late (usually we would do that at parsing time already) because we now got more information (a narrow receiver type) from optimizations that happened after parsing. See [JDK-8257211](https://bugs.openjdk.org/browse/JDK-8257211).
 - `final_graph_reshaping`: Some final reshaping before we go to `Code_Gen`.

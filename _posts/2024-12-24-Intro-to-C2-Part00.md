@@ -39,6 +39,14 @@ People often have their own ideas: that is fantastic. But it is important to fir
 We highly encourage you to reach out to us, and ask if there are any simple tasks where you can make a helpful contribution, and
 learn the processes of code review.
 
+**Blog Series Index**
+
+- [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part00.html): This introduction here.
+- [Part 1](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part01.html): Basics of JIT compilation (`javac`, bytecode, debug-builds, TieredCompilation, C2 IR, generated assembly).
+- [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html): Helpful tools (IGV, rr) and Global Value Numbering during parsing. Plus exercises for the reader.
+- [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html): Overview of the optimization phases and OSR (on stack replacement).
+- [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html): Loop Optimizations.
+
 **Helpful Links**
 
 Here some other *links to get you started*:

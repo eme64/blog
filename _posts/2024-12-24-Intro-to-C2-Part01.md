@@ -183,7 +183,7 @@ This opens a list of challenges and opportunities:
 - The compilation happens in parallel with execution. The compilation competes for resources with the execution. Thus, JIT compilers have stronger incentives for shorter compile times.
 - At startup, no code is compiled yet. Any executed code runs in interpreter mode, which is rather slow. It can take a while for the hot parts of the code to be compiled, and execution speed to increase.
 - Instead of distributing platform dependent executables, one can distribute platform agnostic source code (Java code or Java bytecode). The JIT compiler has full knowledge about the platform it is running on, and can generate code that is optimized for its exact CPU architecture.
-- Dynamically loading new code: The JVM allows new classes to be loaded at runtime, and their methods to be invoked. A AOT compiler would not have knowledge about the dynamic classes at compile time. A JIT compiler allows new code to be compiled at runtime, and thus to reach high throughput of execution of dynamic code.
+- Dynamically loading new code: The JVM allows new classes to be loaded at runtime, and their methods to be invoked. An AOT compiler would not have knowledge about the dynamic classes at compile time. A JIT compiler allows new code to be compiled at runtime, and thus to reach high throughput of execution of dynamic code.
 - New optimization opportunities: we can make speculative assumptions during a compilation, which may allow us to generate faster code. If a speculative assumption is violated at runtime, i.e. the speculation check fails, we can always deoptimize, and jump back to the interpreter. Some examples:
   - If an interface only has a single implementation, we can use static calls instead of dynamic (i.e. virtual) calls. Should we ever load a second implementation of the interface, then we can recompile using dynamic calls.
   - We can profile the execution in interpreter mode (and also in C1 mode), and use this profile information to guide our (C2) compilation. If a certain branch was never executed, we can simply avoid the compilation of that branch, and deoptimize should it ever be taken. This lowers the compile time, as we are compiling less code.
@@ -198,17 +198,17 @@ But we obviously are also running `Test::main`, so why does that method not get 
 
 The HotSpot JVM executes your Java (byte-)code in one of these ways:
 - Interpreter: initially all code is executed in the interpreter. This means we can start executing code immediately, but not at a high speed. We profile which code is executed, by counting how many times a method is invoked for example. If we reach a certain threshold, we decide that this method should be compiled, so we add the method to the compilation queue. But in the meantime we continue executing in the interpreter. If we ever enter that method again, and the compilation is complete, then we can execute the compiled code.
-- C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate machine code quickly, which is already much faster than the interpreter. C1 performs only very limited optimizations, because we do not want to spend more time at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
-- C2: Once profiling has determined that the code is very hot, we want to generate highly optimized machine code. We are willing to pay the higher compilation time, because we expect the code to be executed a lot in the future. The win of execution time with faster code outweighs the cost of time we spend on optimizations.
+- C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate optimized machine code with a low compilation time overhead. The resulting code is areadly much faster than the interpreted code. To make this work, C1 only performs very limited optimizations, because we do not want to spend more time at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
+- C2: Once profiling has determined that the code is very hot, we want to generate highly optimized machine code. We are willing to pay the higher compilation time, because we expect the code to be executed a lot in the future. The reduction of overall execution time with faster code (ideally) outweighs the cost of spending more time on more sophisticated optimizations during C2 compilation.
 
 A few more points:
-- Profiling is not only for counters but also/most important for guiding C2's aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2 compiled code would immediately deoptimize.
+- Profiling information is not only used for counting method invocations to track hot code but also/most importantantly for guiding C2’s aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2 compiled code would immediately deoptimize.
 - This is as simplified picture. Different paths are possible, i.e. we sometimes also directly compile at C2 or stay at C1 and also different levels of profiling are possible.
-- OSR (On Stack Replacement): if we have a loop that executes very many iterations, we would like to compile it while we are in the loop. Once the backedge is taken and the code is compiled, we can enter the compiled code at that point in the code.
+- OSR (On Stack Replacement): if we have a loop that executes very many iterations, we would like to compile it while we are in the loop. Once the backedge is taken and the code is compiled, we can enter the compiled code at that point in the code. [More about OSR in Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html).
 
 Back to our example. We saw that `Test::main` was never compiled, thus must have exclusively been executed in the interpreter. `Test::test` is first executed in the interpreter, then is deemed hot enough for a C1 compilation.
 
-We can force all executions to be run in the interpreter:
+We can force all executions to be run in the interpreter, with the flag `-Xint`:
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -Xint Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -216,8 +216,8 @@ Run
 Done
 ```
 
-Normally, compilation happens in the background, which means that when a compilation is enqueued, we continue with the old mode of execution until the new compilation is completed.
-The asynchronous behaviour can sometimes make compilation a little unpredictable. It can be beneficial for debugging to disable background compilation with `-Xbatch`:
+Normally, compilation happens in the background, which means that when a compilation for a method is enqueued, we continue its execution until the requested compilation is completed.
+This asynchronous behaviour can sometimes make compilation a little unpredictable. It can be beneficial for debugging purposes to disable background compilation with `-Xbatch`:
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -Xbatch Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -226,10 +226,14 @@ Run
 25090 1836    b  4       Test::test (4 bytes)
 Done
 ```
-We see that the code is now compiled first with C1, and then with C2. We also see that the blocking behaviour has made the execution much slower.
+We see that the code is now compiled first with C1, and then with C2.
+`Test::test()` was hot enough to be enqueued for C2 compilation.
+Without `-Xbatch`, we have finished the execution of the entire program before the method was C2 compiled.
+With `-Xbatch`, we explicitely wait for any compiltion to finish before continuing the execution in that method.
+We also see that the blocking behaviour has made the overall execution much slower.
 This is because the VM now blocks the execution any time a compilation needs to be made - and not just in our `Test` class but also during the JVM startup.
 
-It can be useful to limit the compilation to some classes or methods:
+It can often be useful to limit the compilation to some classes or methods:
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -Xbatch -XX:CompileCommand=compileonly,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -239,6 +243,9 @@ Run
 7680   86    b  4       Test::test (4 bytes)
 Done
 ```
+
+We can also force all executions to immediately be compiled, and skip the interpreter entirely, using `-Xcomp`.
+Here, it is even more important to restrict compilation. Otherwise we have to compile all classes and methods used from startup of the JVM, which can take a long time.
 
 With `-XX:-TieredCompilation`, we can disable tiered compilation, and only C2 is used:
 ```

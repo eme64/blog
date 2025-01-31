@@ -22,19 +22,19 @@ In [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html), I 
 
 Here some example optimizations:
 - Detection of loops, canonicalization to `CountedLoop` (loop trip-count phi does not overflow).
-- Turning long-counted-loops into int counted-loops, and long RangeChecks into int RangeChecks if possible.
+- Turning long counted-loops into int counted-loops, and long RangeChecks into int RangeChecks if possible.
 - Remove empty loops.
 - Peeling: make a single-iteration copy of the loop, which is executed as straight-line code before the loop. That allows for some invariant checks to only be executed in the peeled iteration, and removed from the loop body.
 - Loop predication: move some checks (e.g. null-checks, RangeChecks) before the loop.
 - Unswitching: move a loop-invariant check before the loop, copy the loop: one with the true-path, one with the false-path only.
 - Pre-Main-Post-loop:
-  - Unrolling of main-loop.
-  - Pre-loop used for alignment (on architectures where strict alignment for vectorization is required).
-  - Post-loop used to handle left-over iterations.
-  - RangeCheck elimination: main-loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
-- Auto vectorization (main-loop).
+  - Unrolling of main loop.
+  - Pre loop used for alignment (on architectures where strict alignment for vectorization is required).
+  - Post loop used to handle left-over iterations.
+  - RangeCheck elimination: main loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
+- Auto vectorization (main loop).
 
-Additionally, there are some "splitting" optimizations: we split operations (e.g. add) through phis, i.e. to both merged branches, if our heuristic says that this is profitable (e.g. can be constant folded on one path). We also split ifs through phis. We do these "splitting" operations during loop opts because this allows us to have loop structure information that is not available during IGVN.
+Additionally, there are some "splitting" optimizations: we split operations (e.g. add) through phis, i.e. to both merged branches, if our heuristic says that this is profitable (e.g. can be constant folded on one path). We also split ifs through phis. We do these "splitting" operations during loop opts because this allows us to have dominator information that is not available during IGVN.
 
 **Example with TraceLoopOpts**
 
@@ -134,7 +134,7 @@ Let us make a few observations about the logs above:
   - We detect the loop as a counted loop. That is the prerequisite for many other loop optimizations. We see that it iterates over the range `[0,int)`, i.e. that it starts at zero up to some limit.
 - `Predicate RC     Loop: N180/N156  limit_check profile_predicated predicated counted [0,int),+1 (9998 iters)  has_sfpt rce strip_mined`
   - RangeCheck elimination using predicates before the loop.
-- `PreMainPost`: generation of pre, main and post loops. The pre loop prepares for the main loop, the post loop cleans up any remaining iterations. This has at least 2 purposes: the pre-loop can align vector memory accesses for the main loop, by changing the number of iterations spent in the pre-loop. And in some cases RangeCheck elimination requires us to spend all iterations where the RangeCheck cannot be eliminated in the pre and post loop, ensuring that we do not need to execute RangeChecks in the main loop.
+- `PreMainPost`: generation of pre, main and post loops. The pre loop prepares for the main loop, the post loop cleans up any remaining iterations. This has at least two purposes: the pre loop can align vector memory accesses for the main loop, by changing the number of iterations spent in the pre loop. And in some cases RangeCheck elimination requires us to spend all iterations where the RangeCheck cannot be eliminated in the pre and post loop, ensuring that we do not need to execute RangeChecks in the main loop.
 - `Unroll 2` ... `Unroll 16`: we unroll the loop by doubling the number of iterations. Here, we pick an unrolling factor of 16 because I have an AVX512 machine that can fit 16 ints into a 64 byte vector register. On your machine this may differ, try it out!
 - `VTransform::apply`: this is a note from the auto-vectorizer, showing that we are applying the `VTransform`, i.e. we are replacing scalar operations with vector operations.
 - `Loop: N672/N156  limit_check counted [int,int),+16 (9998 iters)  main vector has_sfpt strip_mined`
@@ -143,12 +143,12 @@ Let us make a few observations about the logs above:
 - `Unroll 32`...`Unroll 128`: we further unroll the vectorized main loop, to saturate the CPU pipeline with more vector instructions.
 - `Loop: N986/N156  limit_check counted [int,int),+128 (9998 iters)  main vector has_sfpt strip_mined`
   - The main loop now performs `16 * 8 = 128` iterations in one iteration.
-- ` Loop: N786/N788  counted [int,int),+16 (16 iters)  post vector`
+- `Loop: N786/N788  counted [int,int),+16 (16 iters)  post vector`
   - The drain loop performs `16` iterations in an iteration.
 
 **More Details about Loop Optimizations**
 
-At first, we only execute 3 rounds of loop optimizations.
+At first, we only execute three rounds of loop optimizations.
 Then we perform CCP + IGVN because the first loop optimizations such as peeling and unrolling can often
 allow us to narrow down types or constant fold control flow inside the loop.
 Then, we perform many more iterations of loop optimizations, until no loop can further be optimized or we hit
@@ -157,7 +157,7 @@ a loop optimization round limit.
 Here an overview for `PhaseIdealLoop::build_and_optimize`:
 - `build_loop_tree`: analyze the loop structures: detect loops and compute dominator information.
 - `beautify_loops`: canonicalize the loop structures, needs to rerun `build_loop_tree` afterwards.
-- `build_loop_early`: Determine the `early` loop that a data node belongs to.
+- `build_loop_early`: For a data node, we compute the earliest control node possible, i.e. the "highest" placement in the graph.
 - `counted_loop`: calls `is_counted_loop` which tries to convert `LoopNode` loops to `CountedLoopNode` loops, i.e. they are converted to a canonical counted loop shape. A critical guarantee for counted loops is that the iv phi will never overflow at runtime.
 - `eliminate_useless_zero_trip_guard`: If a post or main loop is removed due to an assert predicate, the opaque that guards the loop is not needed anymore.
 - `process_expensive_nodes`: "expensive" nodes have a control input to force them to be only on certain paths and not slow down others. We need loop information to common up "expensive" nodes while not slowing down any path.
@@ -167,7 +167,7 @@ Here an overview for `PhaseIdealLoop::build_and_optimize`:
 - `reassociate_invariants`: reassociate invariants (a canonicalization) in preparation for `split_thru_phi` (later optimization).
 - `split_if_with_blocks`: This is a large "grab-bag" set of split-trough optimizations, including `split_thru_phi` (e.g. `add(phi(x,y), z)` -> `phi(add(x, z), add(y, z))`).
 - `loop_predication`: Insert hoisted check predicates for null checks and range checks etc.
-- `do_intrinsify_fill`: Detect loops shapes that fill arrays, replace them with a call to an array fill intrinsic.
+- `do_intrinsify_fill`: Detect loop shapes that fill arrays, replace them with a call to an array fill intrinsic.
 - `iteration_split`: perform various iteration splitting transformations:
   - `compute_trip_count`: Compute the trip count if possible.
   - `do_one_iteration_loop`: Convert a one iteration loop into straight-line code, i.e. remove the loop structure.
@@ -189,6 +189,8 @@ Here an overview for `PhaseIdealLoop::build_and_optimize`:
 - `mark_parse_predicate_nodes_useless`: Up to now, all optimizations with predicates should have been performed. Remove the predicates, and maybe some loop optimizations that do not need predicates are now unlocked.
 - Note: `major_progress` gets set as soon as a loop optimization is performed that breaks the loop structure, and would require IGVN to be rerun to clean the graph, and `build_loop_tree` to recompute the loop structures.
 
+**TODO**
+Talk about get / set ctrl "side-table". Probably also idom etc. These are the basic loop structure data structures. And about major progress.
 
 [Continue with Part 5](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part05.html)
 

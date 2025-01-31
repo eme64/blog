@@ -58,6 +58,12 @@ Links to read more about the inner workings of C2:
 - [Blog by Roland Westrelin](https://developers.redhat.com/author/roland-westrelin).
 - And of course [my own blog](https://eme64.github.io/blog/).
 
+**Credits**
+
+At this point, I would like to thank [Tobias Hartmann](https://github.com/TobiHartmann) and [Christian Hagedorn](https://github.com/chhagedorn) from the Swiss Comiler Team
+for mentoring me over the last years, and for their contributions to this blog series.
+They have made countles suggestions and corrections. If you find any errors, that's still on me ;)
+
 **Conclusion for Part 0**
 
 Ok. Now that we have discussed some preliminary things, we can get started with the technical material :)

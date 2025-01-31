@@ -11,6 +11,7 @@ I assume that you have already looked at
 In Part 3, we look at:
 - `CITime` flag: measure compile time, split up into different phases.
 - Overview of the optimization phases (i.e. `Compile::Optimize`).
+- On Stack Replacement (OSR).
 
 [Skip forward to Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
 
@@ -253,6 +254,28 @@ In the list below I will explain some of the steps, and others I will simply ski
 - `process_late_inline_calls_no_inline`: post-parse call devirtualization, where we strength-reduce a virtual call to a static call very late (usually we would do that at parsing time already) because we now got more information (a narrow receiver type) from optimizations that happened after parsing. See [JDK-8257211](https://bugs.openjdk.org/browse/JDK-8257211).
 - `final_graph_reshaping`: Some final reshaping before we go to `Code_Gen`.
 
+**On Stack Replacement (OSR)**
+
+Consider a method that is invoked only a few times and then spends a lot of time in a long running loop with many iterations.
+Our method invocation based counting heuristic would not find that this method is actually quite hot.
+It would be great if this method is still compiled to speed up the execution.
+We could just enqueue a compilation and get the benefit when the method is called the next time.
+But what if finishing the execution in this method takes a long time?
+
+We use a technique called OSR (On Stack Replacement) by counting how many times a loop backedge is taken.
+If we find a loop with a lot of iterations, we compile the method from the start of the loop.
+Everything unreachable before the loop was already executed and can be considered irrelevant.
+While we compile the method, the interpreter keeps executing iterations of the loop.
+When the compilation is complete, we enter the compiled code once we take the backedge again in the interpreter.
+The very next iteration is then performed in the compiled code. This can speed up the rest of the method significantly. 
+
+Note that we also schedule a normal compilation of the method once we OSR-compile a method.
+This allows us to take that full version whenever we enter the method again from top.
+
+OSR compilations can be recognized by the `%` in the `printcompilation` logs:
+```
+4603   85 %  b        Test::test @ 2 (23 bytes)
+```
 
 [In Part 4 we look at Loop Optimizations.](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html)
 

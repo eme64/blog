@@ -171,6 +171,7 @@ We will trace the steps first in IGV, then in the debugger.
 
 The [IdealGraphVisualizer](https://github.com/openjdk/jdk/tree/master/src/utils/IdealGraphVisualizer)
 is a visualizer for C2 IR.
+See also [Roberto's blog post](https://robcasloz.github.io/blog/2021/04/22/improving-the-ideal-graph-visualizer.html).
 
 I usually get it to run like this:
 ```

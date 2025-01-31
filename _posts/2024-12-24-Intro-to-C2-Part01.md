@@ -247,6 +247,16 @@ Done
 We can also force all executions to immediately be compiled, and skip the interpreter entirely, using `-Xcomp`.
 Here, it is even more important to restrict compilation. Otherwise we have to compile all classes and methods used from startup of the JVM, which can take a long time.
 
+We can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
+```
+$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:TieredStopAtLevel=3 Test.java
+CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
+CompileCommand: compileonly Test.test bool compileonly = true
+Run
+7580   85    b  3       Test::test (4 bytes)
+Done
+```
+
 With `-XX:-TieredCompilation`, we can disable tiered compilation, and only C2 is used:
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation Test.java
@@ -257,19 +267,11 @@ Run
 Done
 ```
 
-Alternatively, we can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
-```
-$ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:TieredStopAtLevel=3 Test.java
-CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
-CompileCommand: compileonly Test.test bool compileonly = true
-Run
-7580   85    b  3       Test::test (4 bytes)
-Done
-```
-
 **A first Look at C2 IR**
 
-With `-XX:+PrintIdeal`, we can display the C2 IR (intermediate representation) after most optimizations are done, and before code generation:
+Most of the compler work is done in C2, and only relatively little on C1. Therefore, we focus on C2 IR.
+
+With `-XX:+PrintIdeal`, we can display the C2 machine independent IR (intermediate representation), sometimes also called "ideal graph" or just "C2 IR", after most optimizations are done, and before code generation:
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+PrintIdeal Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -292,17 +294,19 @@ Done
 ```
 This represents our Java code from the example:
 ```java
-    public static int test(int a, int b) {
-        return a + b;
-    }
+public static int test(int a, int b) {
+    return a + b;
+}
 ```
 Let's look at it backwards: we have a `return` statement, that returns the `+` (addition) of two method parameters `a` and `b`.
-We can find the same steps in the IR from `-XX:+PrintIdeal`: `24 Return` returns the value received from IR node `23 AddI`. `23 AddI` adds the two parameters `10 Param` and `11 Param`.
+We can find the same operations in the IR from `-XX:+PrintIdeal`: `24 Return` returns the value received from IR node `23 AddI`. `23 AddI` adds the two parameters `10 Param` and `11 Param`.
 The other nodes are not relevant for us now, and we will come back to some of them at a later point.
+
+We can visualize the `-XX:+PrintIdeal` using IGV, see [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html).
 
 **A first Look at generated Assembly Code**
 
-With `-XX:CompileCommand=print,Test::test` we can print a lot of interesting information from the compilation. Below you can see an example. We will ignore most of it, and pick out what is interesting for now.
+With `-XX:CompileCommand=print,Test::test` we can print a lot of information about the compilation. Below you can see an example. We will ignore most of it, and pick out what is interesting for now.
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=print,Test::test Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -529,7 +533,9 @@ The important instructions to look at here are:
 - `leal    RAX, [RSI + RDX]`: basically does `rax = rsi + rdx`, i.e. it adds the two method arguments.
 - `ret` returns the value in `rax`.
 
-The other instructions all have to do with maintaining the stack-frames, and performing a safepoint-poll.
+The other instructions all have to do with maintaining the stack-frames, and performing a [safepoint-poll](https://shipilev.net/jvm/anatomy-quarks/22-safepoint-polls/).
+
+Note, if you are only interested in the assembly code, you can also directly use `-XX:CompileCommand=printassembly,Test::*` which omits the `OptoAssembly` output.
 
 We find the actual `x64` machine code in a later block:
 ```

@@ -305,10 +305,25 @@ We see that we are on this line:
 2220	  TracePhase tp(_t_optimizer);
 ```
 
-But with `Ctrl-x-a` one can swap to and from the code view:
+We cannot immediatly see the surrounding code. One could use the gdb `list` command to quickly show the surrounding code:
+```
+(rr) list
+2215	}
+2216
+2217	//------------------------------Optimize---------------------------------------
+2218	// Given a graph, optimize it.
+2219	void Compile::Optimize() {
+2220	  TracePhase tp(_t_optimizer);
+2221
+2222	#ifndef PRODUCT
+2223	  if (env()->break_at_compile()) {
+2224	    BREAKPOINT;
+```
+
+What I usually do is using gdb's [TUI](https://sourceware.org/gdb/current/onlinedocs/gdb.html/TUI.html) (Text User Interface) as a visual guide which can be enabled with `Ctrl-x-a`:
 ![image](https://github.com/user-attachments/assets/ce41a49e-cb9f-4878-a000-a80862236cef)
 
-We can also get a backtrace:
+We can also get a backtrace/stacktrace:
 ```
 (rr) bt
 #0  Compile::Optimize (this=0x7f0d2556a870) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/compile.cpp:2220
@@ -341,7 +356,7 @@ We can navigate up and down the backtrace with `up` and `down`. If we go `up` on
 there is a lot of code, but essentially we get a `ciMethod* target`, for which we:
 - Parse and potentially inline code recursively. This gives us the C2 IR.
 - `Optimize`: this is where the heavier optimizations take place.
-- `Code_Gen`: we generate machine code from the IR.
+- `Code_Gen`: we generate machine code from the optimized IR.
 
 Let us look at the IR at the start of `Compile::Optimize`:
 ```
@@ -367,10 +382,11 @@ $1 = void
 ```
 The command `find_nodes_by_dump("")` traverses all IR nodes and prints those that match the search string.
 With an empty string, we match all nodes, and print the whole graph.
+Note that we could also inspect the current graph in IGV by executing `p igv_print(true)` at this breakpoint.
+This sends the current graph directly to IGV which is then listed in a new folder on the left.
+But for the remainder of this blog article, we will focus on examining the graph directly within rr.
 
-We see that we have already constant-folded the expression to `303 * a + 53 * b` at this point.
-
-We can print a subgraph like this like this:
+We can also print a subgraph like this:
 ```
 (rr) p find_node(65)->dump_bfs(2, 0, "#")
 dist dump
@@ -385,34 +401,57 @@ dist dump
 $3 = void
 (rr)
 ```
-The `dump_bfs` has a number of possible uses, feel free to call it with `dump_bfs(1,0,"h")` to read the help message.
+With `find_node(65)` we can search the graph for a node with index 65.
+If it is found, it is returned and we can perform a `dump_bfs()` query on it (note that if you use a non-existing node index, a nullptr is returned and rr hangs when trying to execute `dump_bfs()` on the nullptr).
+`dump_bfs()` is a powerful tool to print various subgraphs from any arbitrary starting node, as for example `65 AddI`.
+If you want to find out more about the supported features, use `dump_bfs(0,0,"h").
+Note that the `#` character enables colored printing which I almost always use.
 The `#` character enables colored printing for example.
 
-We can also look at inputs of nodes like this:
+When you are only interested in a single node, you can directly call `dump()` on a node:
+```
+(rr) p find_node(50)->dump()
+ 50  ConI  === 0  [[ 51 ]]  #int:303
+```
+
+We can also look at inputs of a node by either using `dump(1)`:
+```
+ 10  Parm  === 3  [[ 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
+ 50  ConI  === 0  [[ 51 ]]  #int:303
+ 51  MulI  === _ 10 50  [[ 65 ]]  !jvms: Test::test @ bci:13 (line 17)
+```
+
+Or by directly selecting specific inputs of a node by querying their inputs with `in(input_index)`. For example, this will print the input at index 2:
 ```
 (rr) p find_node(51)->in(2)->dump()
  50  ConI  === 0  [[ 51 ]]  #int:303
-$5 = void
-(rr)
 ```
 
-If we want to find out where the constant-folding happened, we need to step backwards.
+When looking at the entire IR dump above, we can see that we have already constant-folded the expression to `303 * a + 53 * b` at this point. Let's find out how this happened by stepping backwards in rr.
 But manually stepping backwards would be extremely tedious.
 
-But we know that the constant `303` is introduced from the addition `202 + 101`, and the input of node
-`51 MulI` must be set after that. We are interested when this link has changed. In the JVM C++ code of `node.hpp`,
+But we know that the constant `303` is introduced from the addition `202 + 101` and is represented as a new `50 ConI` node that's an input into `51 MulI`.
+We can conclude that `50 ConI` must be set as a new input of `51 MulI` right after the constant folding.
+Can we find out where this link was changed? In the JVM C++ code of `node.hpp`,
 we can see that the input-edges of a `Node` are stored in the `_in` array. I can track changes on such
-and input-edge by setting a watchpoint on the memory location of `_in[2]`:
+an input edge by setting a watchpoint on the memory location of `_in[2]` like this:
 
 ```
+### Get the second input of 51 MulI which is 50 ConI
 (rr) p find_node(51)->in(2)
-$6 = (Node *) 0x7f0d284be0c8
+$6 = (Node *) 0x7f0d284be0c8    <--- 50 ConI
+### Get the same second input of 51 MulI but by directly fetching it from the input edge storing array
 (rr) p find_node(51)->_in[2]
-$7 = (Node *) 0x7f0d284be0c8
+$7 = (Node *) 0x7f0d284be0c8    <--- 50 ConI
+### Grab the memory location where the second input of 51 MulI (i.e. 50 ConI)
+    is currently stored as a pointer.
 (rr) p &find_node(51)->_in[2]
-$8 = (Node **) 0x7f0d284be1b8
+$8 = (Node **) 0x7f0d284be1b8   <--- Memory location of the pointer to 50 ConI
+### Set a watchpoint to break whenever this memory location changes.
+    This happens when we store 50 ConI as new second input to 51 MulI
 (rr) watch *0x7f0d284be1b8
 Hardware watchpoint 2: *0x7f0d284be1b8
+### Reverse continue to the point where this change happens (i.e. the watchpoint triggers)
 (rr) rc
 Continuing.
 
@@ -421,7 +460,6 @@ Thread 3 hit Hardware watchpoint 2: *0x7f0d284be1b8
 Old value = 676061384
 New value = -1414812757
 0x00007f0d313a71b8 in Node::Node (this=0x7f0d284be140, n0=0x0, n1=0x7f0d284bbea0, n2=0x7f0d284be0c8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/node.cpp:380
-warning: Source file is more recent than executable.
 380	  _in[2] = n2; if (n2 != nullptr) n2->add_out((Node *)this);
 (rr) bt
 #0  0x00007f0d313a71b8 in Node::Node (this=0x7f0d284be140, n0=0x0, n1=0x7f0d284bbea0, n2=0x7f0d284be0c8) at /oracle-work/jdk-fork0/open/src/hotspot/share/opto/node.cpp:380
@@ -468,7 +506,7 @@ case Bytecodes::_iadd:
   push( _gvn.transform( new AddINode(a,b) ) );
   break;
 ```
-This does what the bytecode is supposed to do:
+This applies the semantics of the `iadd` bytecode:
 - `pop` two arguments from the stack.
 - Compute the addition: here we create an `AddINode`, and already GVN transform it.
 - `push` the result back onto the stack.
@@ -517,6 +555,10 @@ This is the `51 MulI` with the `303` constant input we have set the watchpoint f
 Note: it took me a long time to get comfortable stepping arount the C2 code with rr, and
 tracing around such graph transformations. So do not be discouraged if this feels hard to
 replicate. It helped me a lot to draw IR graphs on paper, and map out the different steps.
+
+ I also want to mention here that I only presented one possible way to find out where the constant folding was done with rr.
+ There are many other tricks to achieve this with rr, for example, by finding out where a new node with a certain index was created.
+ I will not go into that further now but I will possibly follow up with a blog post about common rr tricks at some point.
 
 **Exercises for the Reader**
 

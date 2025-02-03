@@ -9,7 +9,7 @@ I assume that you have already looked at
 
 In Part 2, we look at:
 - Inlining and GVN (global value numbering) during parsing.
-- Using IGV (Ideal Graph Visualizer) and RR (debugger) to look at the IR and transformations of it.
+- Using IGV (Ideal Graph Visualizer) and rr (debugger) to look at the IR and transformations of it.
 - A simple "idealization" of `101 * a + 202 * a` to `303 * a`.
 - Exercises for the Reader: a few more transformations for the reader to explore (please discuss them in the comments section!).
 
@@ -35,15 +35,15 @@ public class Test {
     
     // The test method we will focus on. 
     public static int test(int a, int b) {
-        return testHelper(101, a) + testHelper(202, a) + testHelper(53, b);
+        return multiply(101, a) + multiply(202, a) + multiply(53, b);
     }
 
-    public static int testHelper(int a, int b) {
+    public static int multiply(int a, int b) {
         return a * b;
     }
 }
 ```
-We see that `Test.test` calls `Test.testHelper` 3 times, and adds up the results.
+We see that `Test.test` calls `Test.multiply` 3 times, and adds up the results.
 If we manually evaluate the code, we see that it computes `101 * a + 202 * a + 53 * b`, which could be simplified to `303 * a + 53 * b`.
 
 We run the example like this, to see the generated IR:
@@ -66,16 +66,16 @@ AFTER: print_ideal
  50  ConI  === 0  [[ 51 ]]  #int:303
  51  MulI  === _ 10 50  [[ 65 ]]  !jvms: Test::test @ bci:13 (line 17)
  52  ConI  === 0  [[ 64 ]]  #int:53
- 64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:17 (line 17)
+ 64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::multiply @ bci:2 (line 21) Test::test @ bci:17 (line 17)
  65  AddI  === _ 51 64  [[ 66 ]]  !jvms: Test::test @ bci:20 (line 17)
  66  Return  === 5 6 7 8 9 returns 65  [[ 0 ]] 
 Done
 ```
-Here a visualization of the graph:
+Here a visualization of the graph (not using IGV, but my own tool):
 
 ![image](https://github.com/user-attachments/assets/bad657eb-da3c-4388-adcc-79a1190c476f)
 
-Note: for now just ignore the many `Param`, `Root` and `Start` nodes, we will look at that later.
+Note: for now just ignore the many `Parm`, `Root` and `Start` nodes, we will look at that later.
 
 And with `-XX:CompileCommand=print,Test::test` we can find the corresponding assembly instructions:
 ```
@@ -104,8 +104,8 @@ We can see that the compilation indeed was simplified to `303 * a + 53 * b`. How
 
 **CompileCommand PrintInlining**
 
-We can see that the annotations on the right indicate that the code originates from both `Test::test` and `Test::testHelper`.
-Hence, we can conclude that the `Test::testHelper` code was inlined into the compilation of `Test::test`.
+We can see in the `PrintIdeal` dump above that the annotations on the right indicate that the code originates from both `Test::test` and `Test::multiply`.
+Hence, we can conclude that the `Test::multiply` code was inlined into the compilation of `Test::test`.
 
 We confirm this with the `PrintInlining` flag:
 ```
@@ -115,14 +115,14 @@ CompileCommand: compileonly Test.test bool compileonly = true
 CompileCommand: PrintInlining Test.test bool PrintInlining = true
 Run
 8233   85    b        Test::test (22 bytes)
-                            @ 3   Test::testHelper (4 bytes)   inline (hot)
-                            @ 10   Test::testHelper (4 bytes)   inline (hot)
-                            @ 17   Test::testHelper (4 bytes)   inline (hot)
+                            @ 3   Test::multiply (4 bytes)   inline (hot)
+                            @ 10   Test::multiply (4 bytes)   inline (hot)
+                            @ 17   Test::multiply (4 bytes)   inline (hot)
 Done
 ```
-We see that the `testHelper` is inlined 3 times (at bytecodes 3, 10 and 17 of `test`).
+We see that the `multiply` is inlined 3 times (at bytecodes 3, 10 and 17 of `test`). Note that we can also see the reason why a method was inlined. In this case, we found that the method is hot enough to be inlined.
 
-We can explicitly disable inlining:
+We can also explicitely disable inlining with `-XX:CompileCommand=dontinline,Test::test`.
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:CompileCommand=dontinline,Test::* Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -131,36 +131,34 @@ CompileCommand: PrintInlining Test.test bool PrintInlining = true
 CompileCommand: dontinline Test.* bool dontinline = true
 Run
 8263   85    b        Test::test (22 bytes)
-                            @ 3   Test::testHelper (4 bytes)   failed to inline: disallowed by CompileCommand
-                            @ 10   Test::testHelper (4 bytes)   failed to inline: disallowed by CompileCommand
-                            @ 17   Test::testHelper (4 bytes)   failed to inline: disallowed by CompileCommand
+                            @ 3   Test::multiply (4 bytes)   failed to inline: disallowed by CompileCommand
+                            @ 10   Test::multiply (4 bytes)   failed to inline: disallowed by CompileCommand
+                            @ 17   Test::multiply (4 bytes)   failed to inline: disallowed by CompileCommand
 Done
 ```
+This is, for example, useful when analyzing the IR of a method with a lot of inlined code and trying to reduce the complexity of the graph.
+In this example, however, the corresponding IR became more complex without inlining, because we get all the call nodes with their projections.
 
-The corresponding IR is now complex, because instead of inlining the code, we have 3 calls to `testHelper`. I simplified the graph a little:
+The corresponding IR is now complex, because instead of inlining the code, we have 3 calls to `multiply`. I simplified the graph a little:
 
 ![image](https://github.com/user-attachments/assets/08ac97bc-59b1-4a07-ad53-3a6255833ec2)
 
-We can see the light-blue `ConI`, which pass the arguments 101, 202, and 53 into the `CallStaticJava`, which call `testHelper`.
-After the calls, we must check for exceptions - since we are not inlining the method we cannot know that it does never throw an exception.
-The green `Proj` nodes take the return values of the calls, and lead into the `AddI` which sum up the return value.
-The `Catch`, `CatchProj` and `CreateEx` lead to the `Rethrow`, which is taken if there was an exception.
+We can see the light-blue `ConI`, which pass the arguments 101, 202, and 53 into a `CallStaticJava` node each, which represent the individual calls to `multiply`.
+After the calls, we must check for exceptions - since we are not inlining the method we cannot know that they actually never throw any exceptions.
+Note that when inlining is not performed, a method call basically becomes a black box for the current compilation.
+The green `Proj` nodes take the return values of the calls, and feed into the `AddI` which sum up the return value.
+The `Catch`, `CatchProj` and `CreateEx` feed to the `Rethrow`, which is taken if there was an exception.
 If there is no exception, we take the path to the next `CallStaticJava`, and eventually to `Return`.
 
-This all looks a little complicated, but you do not need to understand it all yet. We will look at simpler examples with control-flow later.
-Often the IR can look quite complicated, and it takes a while to understand all the nodes.
-
-But a quick explanation for those who already now want to understand more.
-`3 Start` is the beginning of the control-flow in the method, and flows via the "control-parameter" `5 Param` to the first call `24 CallStaticJava`.
-The call executes, and produces a tuple of results, which contains the control, and the return value. These must now be "projected out", via the
-control projection `25 Proj` and the return value projection `29 Proj`.
-Since we cannot see into the call, there may have been an exception thrown, so that is checked with `31 Catch`, and its two control projections:
-`33 CatchProj` (if exception was thrown) and `32 CatchProj` (if no exception was thrown).
+This all looks a little complicated, but you do not need to fully grasp everything, yet. We will look at simpler examples with control-flow later.
+Often the IR can look quite complicated, and it takes a while to understand the meaning of all nodes.
 
 Ok, now we have seen that inlining gets us from:
 ```java
-return testHelper(101, a) + testHelper(202, a) + testHelper(53, b);
-// to
+return multiply(101, a) + multiply(202, a) + multiply(53, b);
+```
+to
+```java
 return 101 * a + 202 * a + 53 * b;
 ```
 But how do we get to `303 * a + 53 * b`?
@@ -179,18 +177,16 @@ cd src/utils/IdealGraphVisualizer/
 echo $JAVA_HOME
 // If that prints nothing, you must set it to a JDK version between 17 and 21
 // For example, I do:
-// export JAVA_HOME=/oracle-work/jdk-21.0.3/fastdebug/
-// or
 // export JAVA_HOME=/oracle-work/jdk-17.0.8/
 mvn clean install
 // The install takes a while... and once complete we can launch IGV:
 bash ./igv.sh
 ```
 
-At first, you should get a window like this:
+At first, you should get a window like this (it may look a little different by now, as we are continually improving IGV):
 ![image](https://github.com/user-attachments/assets/17052bf5-e33c-4347-8544-4410e83833c3)
 
-Then, you can sent the graph from our test execution to IGV, using `-XX:PrintIdealGraphLevel=1`:
+Then, you can sent the graph from our test execution to IGV, using `-XX:PrintIdealGraphLevel=1` (only works on debug build, not on product):
 ```
 java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:PrintIdealGraphLevel=1 Test.java
 ```
@@ -204,34 +200,39 @@ We can see that the graph was already folded during parsing (see `51 MulI` node 
 Some constant-folding has already taken place during parsing. We can make the graph printing more fine-grained with `-XX:PrintIdealGraphLevel=6`, and get a second folder with more graphs:
 ![image](https://github.com/user-attachments/assets/77f317c2-a344-4db8-8f1a-2f9d3127fc53)
 We can now see the graph after each bytecode is parsed. The graphs look quite large and a little messy, as they are not yet cleaned up.
-Personally, I find IGV good to get an overview over the graph, but when it comes to specific questions I prefer to debug directly using RR, where I have more fine-grained
+Personally, I find IGV good to get an overview over the graph, but when it comes to specific questions I prefer to debug directly using rr, where I have more fine-grained
 control and see how it links to the C++ code of the compiler.
 
-**Using the RR Debugger**
+**Using the rr Debugger**
 
 Many are familiar with [gdb](https://en.wikipedia.org/wiki/GNU_Debugger), a commonly used debugger for C / C++ / assembly.
-[rr](https://en.wikipedia.org/wiki/Rr_(debugging)) provides an enhancement to gdb, by allowing reverse-execution.
+[rr](https://github.com/rr-debugger/rr) provides an enhancement to gdb, by allowing reverse-execution.
 This has been an essencial tool when debugging the C2 compiler:
 I often see a state of the IR, and wonder how we got there.
-Then I can set watchpoints or breakpoints, and let rr reverse-continue, leading
+Then I can set watchpoints or breakpoints, and let rr reverse execute, leading
 me to an earlier state that hopefully gives me more information about what happened
 and why.
 
 You should probably consult an online tutorial if you have never used it.
-Essencially, it supports the "navigation" commands from gdb, but you can put `reverse-` in from to go backwards (e.g. `reverse-step`, `reverse-continue`, `reverse-next`).
-I will simply present how I use it below, but that
+Essencially, it supports the "navigation" commands from gdb, but you can put `reverse-` in from to go backwards (e.g. `reverse-step`, `reverse-continue`, `reverse-next` - or the corresponding shortcuts: `rs`, `rc`, and `rn`, respectively).
+I will simply present how I use rr below, but that
 will not give you a complete picture of what you can do with rr.
 
 Personally, I have made the experience that the `fastdebug` build of Hotspot is much faster than the `slowdebug`, but for debugging
 I prefer to use `slowdebug` because it seems to work more reliably, i.e. fewer things are optimized away.
+`slowdebug` also allows you to call any methods as found in the source code which is often not the case with `fastdebug` because they are directly inlined.
+Local variables are also not optimized away with `slowdebug`.
 
-Let us record a run:
+Let us now record a run with rr:
 ```
 rr ./java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test Test.java
 ```
 
-Once recorded, we can `rr replay` this run as many times as we would like, and it is always exactly the same. The recording allows us also to do reverse execution, since
-the debugger has a history it can traverse forward and backward. On my system, this looks like this:
+Once recorded, we can `rr replay` this run as many times as we would like, and it is always exactly the same.
+The recording allows us also to do reverse execution, since
+the debugger has a history it can traverse forward and backward.
+Note that you can still call state modifying methods at a breakpoint or modify variables, memory etc. But as soon as you leave the breakpoint by going forward or backward, everything is reset to the state found in the recorded execution.
+On my system, this looks like this:
 ```
 $ rr replay
 GNU gdb (Ubuntu 9.2-0ubuntu1~20.04.2) 9.2
@@ -293,9 +294,10 @@ warning: Source file is more recent than executable.
 Once `rr replay` starts for `java`, it tends to break at `_start`. At this point it has not yet loaded the JVM code, and so we can not yet
 set breakpoints. So I `continue` (or simply `c`) once. Now it traps at a `SIGSEGV`, which is expected (the JVM for example uses implicit null-checks,
 i.e. assumes a reference is not null, but when it happens to be null the signal-handler catches this and takes the exception path).
-If you get too many `SIGSEGV`, you can skip and silence them with `handle SIGSEGV nostop noprint`.
+If you get too many `SIGSEGV`, you can skip and silence them with `handle SIGSEGV nostop noprint` (you can also create a `.gdbinit` file with that line in your home directory to always apply this in your next debugging session).
 Since the symbols are now all
-available, I can set a breakpoint at `Compile::Optimize` with `b Optimize`. Continuing forward once more with `c`, we hit the `Breakpoint 1`
+available, I can set a breakpoint at `Compile::Optimize` with `b Optimize` (you can set breakpoints earlier, rr will just complain about it).
+Continuing forward once more with `c`, we hit the `Breakpoint 1`
 at `Compile::Optimize`.
 
 We see that we are on this line:
@@ -357,7 +359,7 @@ Let us look at the IR at the start of `Compile::Optimize`:
  50  ConI  === 0  [[ 51 ]]  #int:303
  51  MulI  === _ 10 50  [[ 65 ]]  !jvms: Test::test @ bci:13 (line 17)
  52  ConI  === 0  [[ 64 ]]  #int:53
- 64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:17 (line 17)
+ 64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::multiply @ bci:2 (line 21) Test::test @ bci:17 (line 17)
  65  AddI  === _ 51 64  [[ 66 ]]  !jvms: Test::test @ bci:20 (line 17)
  66  Return  === 5 6 7 8 9 returns 65  [[ 0 ]] 
 $1 = void
@@ -377,7 +379,7 @@ dist dump
    2  11  Parm  === 3  [[ 64 ]] Parm1: int !jvms: Test::test @ bci:-1 (line 17)
    2  50  ConI  === 0  [[ 51 ]]  #int:303
    2  10  Parm  === 3  [[ 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
-   1  64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:17 (line 17)
+   1  64  MulI  === _ 11 52  [[ 65 ]]  !jvms: Test::multiply @ bci:2 (line 21) Test::test @ bci:17 (line 17)
    1  51  MulI  === _ 10 50  [[ 65 ]]  !jvms: Test::test @ bci:13 (line 17)
    0  65  AddI  === _ 51 64  [[ 66 ]]  !jvms: Test::test @ bci:20 (line 17)
 $3 = void
@@ -488,8 +490,8 @@ dist dump
    2  35  ConI  === 0  [[ 25 43 47 49 ]]  #int:202
    2  23  ConI  === 0  [[ 22 31 34 49 ]]  #int:101
    2  10  Parm  === 3  [[ 4 19 22 22 25 31 34 43 47 51 ]] Parm0: int !jvms: Test::test @ bci:-1 (line 17)
-   1  47  MulI  === _ 10 35  [[ 42 37 48 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:10 (line 17)
-   1  34  MulI  === _ 10 23  [[ 30 25 37 48 ]]  !jvms: Test::testHelper @ bci:2 (line 21) Test::test @ bci:3 (line 17)
+   1  47  MulI  === _ 10 35  [[ 42 37 48 ]]  !jvms: Test::multiply @ bci:2 (line 21) Test::test @ bci:10 (line 17)
+   1  34  MulI  === _ 10 23  [[ 30 25 37 48 ]]  !jvms: Test::multiply @ bci:2 (line 21) Test::test @ bci:3 (line 17)
    0  48  AddI  === _ 34 47  [[ ]]  !jvms: Test::test @ bci:13 (line 17)
 ```
 This is `(a * 101) + (a * 202)`, matching the pattern `Convert "a*b+a*c into a*(b+c)` in the code.

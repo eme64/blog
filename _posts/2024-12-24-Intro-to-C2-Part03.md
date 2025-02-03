@@ -20,7 +20,7 @@ In Part 3, we look at:
 In [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html), we saw that a C2 compilation has essentially 3 steps (see `Compile::Compile`):
 - Parse and potentially inline code recursively. This gives us the C2 IR.
 - `Optimize`: this is where the heavier optimizations take place.
-- `Code_Gen`: we generate machine code from the IR.
+- `Code_Gen`: we generate machine code from the optimized IR.
 
 We also saw that during parsing, we already perform some local optimizations / Global Value Numbering (see `PhaseGVN::transform` in
 [phaseX.hpp](https://github.com/openjdk/jdk/blob/cede30416f9730b0ca106e97b3ed9a25a09d3386/src/hotspot/share/opto/phaseX.cpp#L674-L741)):
@@ -31,12 +31,11 @@ We also saw that during parsing, we already perform some local optimizations / G
 GVN is very important, as it canonicalizes the graph in preparation for other optimizations (they now only need to match canonical patterns, which makes writing optimizations easier). And it performs local optimizations, such as constant folding.
 Further, it already simplifies the IR graph, and keeps it smaller.
 
-**Getting an overview with the CITime flag**
+**Getting an overview of a C2 compilation with the CITime flag**
 
-The `-XX:+CITime` flag collects timing information about compilation, i.e. it measures how much time was spent on which optimizations.
-A JIT compiler needs to have fast compilation, so that we do not spend too many compute resources on compilation that we could otherwise
-spend on program execution.
-But at this point, the flag also gives us a nice overview over the C2 compilation steps.
+The `-XX:+CITime` flag collects timing information about a compilation, i.e. it measures how much time was spent in individual compilation phases and optimization passes.
+A JIT compiler should perform a compilation of a method reasonably fast such that we do not spend too much resources on it that we could otherwise spend on the actual program execution.
+The `CITime` flag can support us in this matter but also serves at giving us a nice overview over the different C2 compilation steps
 
 Let's work with an example:
 
@@ -65,7 +64,8 @@ public class Test {
 }
 ```
 
-We execute it with `XX:+CITime`, and `-XX:RepeatCompilation=1000` to artificially repeat each compilation 1000x, so that we get a more stable measurement of the compile times:
+We execute it with `-XX: CompileCommand=compileonly,Test::test` to only focus on the compilation of Test::test (as seen in part 1).
+We now additionlly use `-XX:+CITime`, and `-XX:RepeatCompilation=1000` to artificially repeat the compilation of Test::test 1000 times, so that we get a more stable measurement of the compile times:
 ```
 java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+CITime -XX:RepeatCompilation=1000 Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -165,30 +165,33 @@ Accumulated compiler times
   nmethod total size        :     2680 bytes
 ```
 
-In the logs we can find a few interesting things:
+In the logs, we can find a few interesting things:
 - There are 2 compilations of `Test::test`:
   - One `On stack replacement`, see `4603   85 %  b        Test::test @ 2 (23 bytes)` (more about OSR that later).
   - One `Standard compilation`, see `15492   86    b        Test::test (23 bytes)`
-  - Note that our 1000x repetitions apply to both compilations, but that is not explicitly mentioned in the logs.
-- We see that the `C2 Compile Time` is broken down into multiple parts, and those are broken down recursively.
+  - Note that our 1000 repetitions apply to both compilations, but that is not explicitly mentioned in the logs.
+- We see that the `C2 Compile Time` is broken down into multiple phases, and those are broken down recursively.
   - `Parse`: parsing of bytecode to C2 IR graph, including GVN.
-  - `Optimize`: we will look at more details below.
-  - `Matcher`: Map Ideal to Machine (mach) nodes.
+  - `Optimize`: we will look at that in more details below.
+  - `Matcher`: Map the machine *in*dependent IR (which we simply called C2 IR before) to a different machine dependant IR, which we call the Mach graph (we may revisit the Mach graph, its Mach nodes, and everything that follows afterwards as part of the `Compile::Code_Gen` phases in a future blog post).
   - `Scheduler`: `PhaseCFG`, create a CFG graph of blocks.
   - `Regalloc`: `PhaseChaitin`, register allocation.
   - `Block Ordering`: `PhaseBlockLayout` / `PhaseCFG`, remove empty blocks and order the blocks.
   - `Peephole`: peephole (local) optimizations on register allocated basic blocks - only works on mach nodes.
-  - `Code Emission`: Convert IR nodes to instruction bits in a code buffer.
-- Most time is spent on `C2 Compile Time` -> `Optimize` -> `IdealLoop`, i.e. loop optimizations. This is not surprising given that our example `Test::test` consists only of a loop.
+  - `Code Emission`: Convert the Mach nodes to machine/assembly instructions and store them in a dedicated code buffer.
+- Most time is spent on `C2 Compile Time` -> `Optimize` -> `IdealLoop`, i.e. loop optimizations. This is not surprising given that our example `Test::test` consists only of a single loop.
 
 **Overview for Compile::Optimize**
 
 Let us now turn our attention to the C2 optimization part, i.e. `Compile::Optimize` in
 [compile.cpp](https://github.com/openjdk/jdk/blob/cede30416f9730b0ca106e97b3ed9a25a09d3386/src/hotspot/share/opto/compile.cpp#L2219-L2505).
-I will walk through `Compile::Optimize`, the order is slightly different to that in `CITime`, unfortunately.
+I will walk through the different phases in `Compile::Optimize`. Unfortunately, the order is slightly different to that shown in the output of `CITime` - so bear with me :-)
 
 
-First, we might notice the `TracePhase` all throughout `Compile::Optimize`, which correspond to the measurements in `CITime`.
+The very first line in `Compile::Optimize` creates a `TracePhase` object.
+This class is responsible to log all measurements shown with CITime.
+Every time we create a new object of `TracePhase`, we log the current time for the provided phase in the parameter (e.g. `_t_optimizer`, `_t_parser` etc.).
+We can easily grep for them to map the `CITime` output back to the code locations:
 You can easily `grep` for them:
 ```
 grep _t_optimizer src/hotspot/share/ -r
@@ -202,57 +205,57 @@ src/hotspot/share/opto/phase.cpp:    tty->print_cr ("         GVN 2:            
 ...
 ```
 
-We start with a first round of `PhaseIterGVN` (or just `IGVN`). This is essentially an extended version of GVN (`PhaseGVN`).
+After parsing the bytecode and creating our initial C2 IR, we start with a first round of `PhaseIterGVN` (or just `IGVN`). This is essentially an extended version of GVN (`PhaseGVN`).
 Compared to `PhaseGVN`, the `can_reshape` flag is enabled for `IGVN`, which allows `Node::Ideal` optimizations to perform
 additional "reshaping" optimizations.
 Further, `IGVN` is iterative. We have a `igvn_worklist`, that holds all nodes that we should still transform.
 And when a node is transformed (using `Ideal`, `Value`, or `Identity`), then its neighbours (the transitive useses) are added to the `igvn_worklist`,
-since they may now have new optimization opportunities. For example, constants can propagate through the graph this way.
-`IGVN` is also used after most other optimizations (escape analysis, loop optimizations, etc), to clean up the graph
-again, and bring it into a canonical form again. This simplifies those other optimizations, since they can for example just
-set some if-condition to `true`, and then rely on `IGVN` to constant fold the control graph, and remove the `false` path.
-Getting the graph back into a canonical state is important, because other optimizations rely on a canonical state of the graph:
+since they may now have new optimization opportunities (hence the name "iterative"). For example, constants can propagate through the graph this way.
+`IGVN` is also used after most other major optimizations (e.g. escape analysis, and loop optimizations), to clean up the graph,
+and bring it into a canonical form again.
+This allows most optimizations to avoid risky graph surgery that IGVN is also capable of doing.
+For example, when an optimization wants to remove an if-statement because it is always true, we can simply replace the if-condition with true in the IR.
+IGVN will then take care of safely removing all nodes on the else path and the if-node itself and ensures that the graph is in a sane state again afterwards.
+As an additional bonus, IGVN will bring the graph back into a canonical state again which is important, because other optimizations rely on a canonical state of the graph:
 this simplifies the patterns the optimizations need to look for.
 
-In the list below I will explain some of the steps, and others I will simply skip, since I do not know enough about them
-(That could reflect the importance of those parts for your understanding at the beginner level, or it may just reflect my ignorance).
+In the list below, I will explain some of the steps, and others I will simply skip, since I do not know enough about them yet.
 
 - `process_for_unstable_if_traps`: skip.
 - Incremental inlining (aka late inlining): `inline_incrementally`: we already inlined some code during parsing. But we can now decide to inline even more methods, by replacing the calls in the IR with the IR nodes from the call.
 - Boxing Elimination: `eliminate_boxing` / `inline_boxing_calls`: special case of incremental inlining for `valueOf` methods. For example, it helps unbox `Integer` to `int`.
 - `remove_speculative_types`: skip.
 - `cleanup_expensive_nodes`: skip.
-- `PhaseVector`: helps unbox the boxed vector operations from the VectorAPI.
-- `PhaseRenumberLive`: remove useless nodes, and renumber the `Node::_idx`. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows the `_idx` to be more compact, and that allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
+- `PhaseVector`: helps to unbox the vector operations from the VectorAPI.
+- `PhaseRenumberLive`: remove useless nodes, and renumber the node indices stored in `Node::_idx` for each node. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbmering allows us to make the node index range more compact again since we could have already removed a lot of nodes. This also allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 - `remove_root_to_sfpts_edges`: skip.
-
 - Escape Analysis: `do_escape_analysis` / `ConnectionGraph`: detects allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead.
-
 - Loop Optimizations: `PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
-  - Detection of loops, canonicalization to `CountedLoop` (loop trip-count phi does not overflow).
+  - Detection of loops and attempts to canonicalize all loops that follow a simple "counted loop" form where we can predict the value of the loop induction variable `i` in each iteration while `i` never overflows.
   - Turning long-counted-loops into int counted-loops.
   - Remove empty loops.
   - Peeling: make a single-iteration copy of the loop, which is executed as straight-line code before the loop. That allows for some invariant checks to only be executed in the peeled iteration, and removed from the loop body.
-  - Loop predication: move some checks (e.g. null-checks, RangeChecks) before the loop.
-  - Unswitching: move a loop-invariant check before the loop, copy the loop: one with the true-path, one with the false-path only.
-  - Pre-Main-Post-loop:
+  - Loop Predication: move some checks (e.g. null-checks, range checks) before the loop.
+  - Loop Unswitching: move a loop-invariant check before the loop by copying the loop: One loop version contains the true-path of the loop-invariant check and the other one the false-path only.
+  - Pre-Main-Post-loop: We split a loop into a pre, a main, and a post loop. This has various applications:
     - Unrolling of main-loop.
     - Pre-loop used for alignment (on architectures where strict alignment for vectorization is required).
     - Post-loop used to handle left-over iterations.
-    - RangeCheck elimination: main-loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
-  - Auto vectorization (main-loop).
-- Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN.
-  - IGVN is pessimistic, i.e. starts with the whole range of a type (we confusingly call it BOTTOM) and tries to prove a narrower type.
-  - CCP is optimistic, i.e. starts with an empty type (we confusingly call it TOP), and widens the type based on the node's input types.
-- More Loop Optimisations: `optimize_loops`: many rounds of `PhaseIdealLoop`.
-- `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimsations until after loop opts, for various reasons, including:
+    - Range Check Elimination: Let the main-loop handle those loop iterations where a range check is known to pass (i.e. we can get rid of it), while the pre and post loop handle those iteration before or afterwards where we don't know if the range check will pass (i.e. we keep the range check).
+  - Auto Vectorization of the main-loop.
+- Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN. Note that both phases try to improve the type of nodes but take a different approach:
+  - We have not looked at types in more details, yet. Each node in the IR has a type assigned which tells us what value a node could take during runtime. For example, an `AddI` node could have a type `[5..10]` which means that during runtime, the addition will result in any value between 5 and 10 (inclusive).
+  - IGVN is pessimistic by first assuming nothing about a node. This means we start with a type that covers the whole range of values. For example, an AddI node starts with type `int` which means any integer (for those who studied lattices before, we oddly call this whole range of values BOTTOM and not TOP, and vice verca). IGVN then tries to narrow a node's type iteratively.
+  - CCP is optimistic by starting with an empty type for each node (we confusingly call that empty type TOP). We then try to widen the types of all nodes by propagate the updated types through the graph in an iterative way until a fixed point is reached.
+- More Loop Optimizations: `optimize_loops`: many rounds of `PhaseIdealLoop`.
+- `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimizations until after loop opts, for various reasons, including:
   - Some optimizations would make loop optimizations impossible or more difficult.
-  - Some nodes are needed for loop opts, and can be removed after (e.g. `Opaque` nodes).
-- Macro Expansion: `PhaseMacroExpand`: Expands or removes macro nodes. Macro nodes are special nodes that represent complex operations that can not directly be mapped to machine (mach) nodes by the Matcher. Instead, they need to be expanded to other nodes first.
-- Barrier Expansion: `expand_barriers`: Expand GC barriers, special instructions inserted to support garbage collection. These include write barriers to track modified references and read barriers to ensure objects are correctly loaded before use. For more information, see [this great blog post](https://blog.ragozin.info/2011/06/understanding-gc-pauses-in-jvm-hotspots.html).
+  - Some nodes are needed for loop opts only and can be removed afterwards (e.g. some `Opaque` nodes).
+- Macro Expansion: `PhaseMacroExpand`: Expands or removes macro nodes. Macro nodes are special nodes that represent complex operations that cannot directly be mapped to machine (mach) nodes by the Matcher. Instead, they need to be expanded to other nodes first.
+- Barrier Expansion: `expand_barriers`: Expand GC barriers which are special instructions inserted to support garbage collection. These include write barriers to track modified references and read barriers to ensure objects are correctly loaded before reading from them. For more information, see [this great blog post by Alexey Ragozin](https://blog.ragozin.info/2011/06/understanding-gc-pauses-in-jvm-hotspots.html).
 - `optimize_logic_cones`: Optimization for vector logic operations.
 - `process_late_inline_calls_no_inline`: post-parse call devirtualization, where we strength-reduce a virtual call to a static call very late (usually we would do that at parsing time already) because we now got more information (a narrow receiver type) from optimizations that happened after parsing. See [JDK-8257211](https://bugs.openjdk.org/browse/JDK-8257211).
-- `final_graph_reshaping`: Some final reshaping before we go to `Code_Gen`.
+- `final_graph_reshaping`: Some final reshaping before we continue to create the Mach graph in `Compile::Code_Gen`.
 
 **On Stack Replacement (OSR)**
 

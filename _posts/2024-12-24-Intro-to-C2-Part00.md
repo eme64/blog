@@ -68,7 +68,7 @@ Links to read more about the inner workings of C2:
 
 **Credits**
 
-At this point, I would like to thank [Tobias Hartmann](https://github.com/TobiHartmann) and [Christian Hagedorn](https://github.com/chhagedorn) from the Swiss Comiler Team
+At this point, I would like to thank [Tobias Hartmann](https://github.com/TobiHartmann) and [Christian Hagedorn](https://github.com/chhagedorn) from the Swiss Compiler Team
 for mentoring me over the last years, and for their contributions to this blog series.
 They have made countles suggestions and corrections. If you find any errors, that's still on me ;)
 

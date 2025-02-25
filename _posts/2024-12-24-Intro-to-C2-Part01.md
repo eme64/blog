@@ -59,7 +59,7 @@ Java (and other JVM programming languages) are first compiled to [Java Bytecode]
 This bytecode is still platform agnostic, and needs to be executed by the JVM.
 The JVM can interpret the bytecode, or further compile it to platform specific machine code.
 
-We can explicitly compile our test file to bytecode in a class-file:
+We can explicitly compile our test file to bytecode in a class file:
 ```
 $ javac Test.java
 ```
@@ -113,9 +113,9 @@ For now, you do not need to understand this bytecode in detail. On a high level,
 
 If you are interested to learn more about Java Bytecode:
 - [Java Bytecode (Wikipedia)](https://en.wikipedia.org/wiki/List_of_Java_bytecode_instructions): helpful reference for all the bytecodes.
-- [asmtools](https://github.com/openjdk/asmtools): tool to assemble / disassemble class-files. When I am working on a bug where I am only provided a class-file, I often inspect the class-file with `jdis`, modify it, and compile it again with `jasm`. That way I can often even reconstruct the reproducer with Java code eventually.
+- [asmtools](https://github.com/openjdk/asmtools): tool to assemble / disassemble class files. When I am working on a bug where I am only provided a class file, I often inspect the class file with `jdis`, modify it, and compile it again with `jasm`. After reducing and tweaking the `.jasm` file for a while, I can often even reconstruct a `.java` reproducer of the same bug.
 
-Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class-file. [This only works since JDK 11](https://dev.java/learn/single-file-program/).
+Note 1: When we directly execute the `Test.java`, the JVM implicitly compiles the file to bytecode first, and directly executes that class file. [This only works since JDK 11](https://dev.java/learn/single-file-program/).
 
 Note 2: `.jar` files are simply zip-directories of various `.class` files.
 
@@ -132,7 +132,7 @@ I tend to work with fastdebug by default, but then switch to slowdebug if GDB / 
 
 **VM CompileCommand printcompilation**
 
-Let us now continue with the example, and inspect which methods are compiled. This can be done by using a special `CompileCommand` flag that defines various additional compiler control options. `printcompilation` is one of them which prints compiled methods (for more details about `CompileCommand` use `java -XX:CompileCommand=help --version`).
+Let us now continue with the example, and inspect which methods are compiled. We do this by using a special `CompileCommand` flag that defines various additional compiler control options. `printcompilation` is one of them which prints compiled methods (for more details about `CompileCommand` use `java -XX:CompileCommand=help --version`).
 
 ```
 $ java -XX:CompileCommand=printcompilation,*::* Test.java
@@ -170,7 +170,7 @@ Run
 Done
 ```
 
-**Why usa a Just In Time (JIT) Compiler?**
+**Why use a Just In Time (JIT) Compiler?**
 
 An Ahead Of Time (AOT) compiler compiles the code once, and delivers an executable.
 With GCC, you compile your C code once, and distribute the executable.
@@ -179,10 +179,10 @@ You cannot execute a x64 executable on an aarch64 machine.
 If you used AVX512 assembly instructions in the executable, you can only execute it on machines that support those instructions.
 
 A Just In Time (JIT) compiler compiles the code at runtime.
-This opens a list of challenges and opportunities:
+This presents a number of challenges and opportunities:
 - The compilation happens in parallel with execution. The compilation competes for resources with the execution. Thus, JIT compilers have stronger incentives for shorter compile times.
 - At startup, no code is compiled yet. Any executed code runs in interpreter mode, which is rather slow. It can take a while for the hot parts of the code to be compiled, and execution speed to increase.
-- Instead of distributing platform dependent executables, one can distribute platform agnostic source code (Java code or Java bytecode). The JIT compiler has full knowledge about the platform it is running on, and can generate code that is optimized for its exact CPU architecture.
+- Instead of distributing platform dependent executables, one can distribute platform-agnostic source code (Java code or Java bytecode). The JIT compiler has full knowledge about the platform it is running on, and can generate code that is optimized for its exact CPU architecture.
 - Dynamically loading new code: The JVM allows new classes to be loaded at runtime, and their methods to be invoked. An AOT compiler would not have knowledge about the dynamic classes at compile time. A JIT compiler allows new code to be compiled at runtime, and thus to reach high throughput of execution of dynamic code.
 - New optimization opportunities: we can make speculative assumptions during a compilation, which may allow us to generate faster code. If a speculative assumption is violated at runtime, i.e. the speculation check fails, we can always deoptimize, and jump back to the interpreter. Some examples:
   - If an interface only has a single implementation, we can use static calls instead of dynamic (i.e. virtual) calls. Should we ever load a second implementation of the interface, then we can recompile using dynamic calls.
@@ -197,16 +197,16 @@ In our execution above, we notice that from `Test.java` only `Test::test` was ev
 But we obviously are also running `Test::main`, so why does that method not get compiled?
 
 The HotSpot JVM executes your Java (byte-)code in one of these ways:
-- Interpreter: initially all code is executed in the interpreter. This means we can start executing code immediately, but not at a high speed. We profile which code is executed, by counting how many times a method is invoked for example. If we reach a certain threshold, we decide that this method should be compiled, so we add the method to the compilation queue. But in the meantime we continue executing in the interpreter. If we ever enter that method again, and the compilation is complete, then we can execute the compiled code.
-- C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate optimized machine code with a low compilation time overhead. The resulting code is areadly much faster than the interpreted code. To make this work, C1 only performs very limited optimizations, because we do not want to spend more time at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
+- Interpreter: initially all code is executed in the interpreter. This means we can start executing code immediately, but not at a high speed. We profile which code is executed by, for example, counting how many times a method is invoked. If we reach a certain threshold, we decide that this method should be compiled, so we add the method to the compilation queue. But, in the meantime, we continue executing in the interpreter. If we ever enter that method again, and the compilation is complete, then we can execute the compiled code.
+- C1: Once profiling has determined that the code is hot enough (e.g. has been called a lot), we compile the method with C1. The goal of C1 is to generate optimized machine code with a low compilation time overhead. The resulting code is already much faster than the interpreted code. To make this work, C1 only performs very limited optimizations, because we do not want to spend more time at this stage yet. C1 also adds profiling code to the machine code, so that we can keep counting the number of invocations. If we detect that the code has been called a lot more, we eventually would like to generate more optimized machine code. If a certain invocation count is exceeded, we enqueue the method for compilation again, but this time with C2.
 - C2: Once profiling has determined that the code is very hot, we want to generate highly optimized machine code. We are willing to pay the higher compilation time, because we expect the code to be executed a lot in the future. The reduction of overall execution time with faster code (ideally) outweighs the cost of spending more time on more sophisticated optimizations during C2 compilation.
 
 A few more points:
-- Profiling information is not only used for counting method invocations to track hot code but also/most importantantly for guiding C2’s aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2 compiled code would immediately deoptimize.
+- Profiling information is not only used for counting method invocations to track hot code but also/most importantantly for guiding C2’s aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2-compiled code would immediately deoptimize.
 - This is as simplified picture. Different paths are possible, i.e. we sometimes also directly compile at C2 or stay at C1 and also different levels of profiling are possible.
-- OSR (On Stack Replacement): if we have a loop that executes very many iterations, we would like to compile it while we are in the loop. Once the backedge is taken and the code is compiled, we can enter the compiled code at that point in the code. [More about OSR in Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html).
+- On Stack Replacement (OSR): if we have a loop that executes very many iterations, we would like to compile it while we are in the loop. Once the backedge is taken and the code is compiled, we can enter the compiled code at that point in the code. [More about OSR in Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html).
 
-Back to our example. We saw that `Test::main` was never compiled, thus must have exclusively been executed in the interpreter. `Test::test` is first executed in the interpreter, then is deemed hot enough for a C1 compilation.
+Back to our example. We saw that `Test::main` was never compiled, and thus must have exclusively been executed in the interpreter. `Test::test` is first executed in the interpreter, then is deemed hot enough for a C1 compilation.
 
 We can force all executions to be run in the interpreter, with the flag `-Xint`:
 ```
@@ -244,8 +244,9 @@ Run
 Done
 ```
 
-We can also force all executions to immediately be compiled, and skip the interpreter entirely, using `-Xcomp`.
-Here, it is even more important to restrict compilation. Otherwise we have to compile all classes and methods used from startup of the JVM, which can take a long time.
+We can also force immediate compilation of a method before its execution, and skip the interpreter entirely, using `-Xcomp`.
+Here, it is even more important to restrict compilation (the ones excluded from compilation then run in the interpreter).
+Otherwise we have to compile all classes and methods used from startup of the JVM, which can take a long time.
 
 We can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
 ```
@@ -269,7 +270,7 @@ Done
 
 **A first Look at C2 IR**
 
-Most of the compler work is done in C2, and only relatively little on C1. Therefore, we focus on C2 IR.
+Most of the compler work is done in C2, and only relatively little in C1. Therefore, we focus on C2 IR.
 
 With `-XX:+PrintIdeal`, we can display the C2 machine independent IR (intermediate representation), sometimes also called "ideal graph" or just "C2 IR", after most optimizations are done, and before code generation:
 ```

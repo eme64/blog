@@ -6,7 +6,7 @@ date: 2024-12-24
 I have now worked at Oracle for 3 years. I've been learning a lot during this time, especially considering that I focused mostly on
 HPC (high-performance computing) and theoretical computer science in my education at ETH Zürich, and had no formal education in
 compilers. Over the last years, I had the opportunity to learn a lot from my fellow C2 engineers at Oracle but also from
-other companies and even individual contributors working on OpenJDK. I would now like to summarize my understanding of the
+other companies and even individual contributors working on OpenJDK. In this blog series, I summarize my understanding of the
 C2 Compiler in the HotSpot JVM, and hopefully make it easier for others to dive into C2.
 
 Target audiences:
@@ -17,20 +17,20 @@ Target audiences:
 Topics I hope to address in this series:
 - Parsing Java bytecode into IR (sea-of-nodes).
 - Understanding C2 with visualization and through the rr-debugger.
-- IGVN and CCP (canonicalization and local optimizations).
+- Intermediate Representation (IR) canonicalization and optimization: Iterative Global Value Numbering (IGVN) and Conditional Constant Propagation (CCP).
 - Loop optimizations.
-- Matching in the backend for specific CPUs.
+- Instruction scheduling (called matching in C2) in the backend for specific CPUs.
 
 Additionally:
-- Debugging C2 using [rr](https://github.com/rr-debugger/rr) (or GDB), and the help of JVM flags.
+- Debugging C2 using [rr](https://github.com/rr-debugger/rr) (or GDB), and with the help of JVM flags.
 - Analyzing the generated Assembly code: what did C2 do with my Java code?
-- Benchmarks: stand-alone (just a single Java file) or using JMH.
+- Benchmarks: stand-alone (just a single Java file) or using the [Java Microbenchmark Harness (JMH)](https://github.com/openjdk/jmh).
 - Testing: how to write good tests to verify that optimizations are applied correctly on the IR and eventually produce correct Assembly code.
 
 **A note to new individual External Contributors**
 
 The HotSpot JVM is part of the OpenJDK, which means anybody is welcome to contribute. In fact, I regularly review code contributions from individuals at other
-companies involved with OpenJDK, but also individual contributors who work on C2 in their free time.
+companies involved with OpenJDK, and also from individual contributors who work on C2 in their free time.
 
 You are very welcome to join the communal effort to improve HotSpot, and improve your own skills in the process. I personally can help you mostly with C2, because
 that is what I have been working on over the last years.
@@ -41,10 +41,10 @@ learn the processes of code review.
 
 **Blog Series Index**
 
-- [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part00.html): This introduction here.
+- [Part 0](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part00.html): This introduction.
 - [Part 1](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part01.html): Basics of JIT compilation (`javac`, bytecode, debug-builds, TieredCompilation, C2 IR, generated assembly).
 - [Part 2](https://eme64.github.io/blog/2024/12/24/Intro-to-C2-Part02.html): Helpful tools (IGV, rr) and Global Value Numbering during parsing. Plus exercises for the reader.
-- [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html): Overview of the optimization phases and OSR (on stack replacement).
+- [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html): Overview of the optimization phases and On Stack Replacement (OSR).
 - [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html): Loop Optimizations.
 
 **Helpful Links**
@@ -68,9 +68,9 @@ Links to read more about the inner workings of C2:
 
 **Credits**
 
-At this point, I would like to thank [Tobias Hartmann](https://github.com/TobiHartmann) and [Christian Hagedorn](https://github.com/chhagedorn) from the Swiss Comiler Team
+At this point, I would like to thank [Tobias Hartmann](https://github.com/TobiHartmann) and [Christian Hagedorn](https://github.com/chhagedorn) from the Swiss Compiler Team
 for mentoring me over the last years, and for their contributions to this blog series.
-They have made countles suggestions and corrections. If you find any errors, that's still on me ;)
+They have made countless suggestions and corrections. If you find any errors, that's still on me ;)
 
 **Conclusion for Part 0**
 

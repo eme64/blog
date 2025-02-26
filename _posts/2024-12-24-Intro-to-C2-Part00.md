@@ -54,14 +54,22 @@ Here some other *links to get you started*:
 - The [Developers Guide](https://openjdk.org/guide/): has a lot of very important information about the processes and rules. Make sure you read at least about [Contributing to an OpenJDK Project](https://openjdk.org/guide/#contributing-to-an-openjdk-project).
 - There is a lot of good information on the [OpenJDK](https://openjdk.org/) site.
 - [HotSpot code style-guide](https://github.com/openjdk/jdk/blob/master/doc/hotspot-style.md).
-- [Java Youtube Channel](https://www.youtube.com/Java): talks about projects, releases, etc. Good if you want to stay informed about the bigger picture.
+- [Java Youtube Channel](https://www.youtube.com/Java): talks about projects, releases, etc. Good if you want to stay informed about the bigger picture. Here a personal selection:
+  - [Java in 2024 - #JVMLS keynote (Georges Saab, SVP Java Plagform Group, Oracle)](https://www.youtube.com/watch?v=NV4v7KXKQ-c) About the Java 6 month release cycle.
+  - [Java Performance Update (2024, Per Minborg)](https://www.youtube.com/watch?v=rXv2-lN5Xgk&t=2567s)
+  - [Valhalla - Java's Epic Refactor (2024, Brian Goetz)](https://www.youtube.com/watch?v=Dhn-JgZaBWo) About value types.
+  - [Project Leyden Update (JVMLS 2024)](https://www.youtube.com/watch?v=OOPSU4LnKg0) About using training runs / AOT to improve startup time.
+  - [Foreign Function & Memory API - A (Quick) Peek Under the Hood (2024, Maurizio Cimadamore)](https://www.youtube.com/watch?v=iwmVbeiA42E&t=3s) About FFM, improved interoperability with native (C/C++) code and memory.
+  - [Project Lilliput - Beyond Compact Headers (2024, Roman Kennke)](https://www.youtube.com/watch?v=kHJ1moNLwao&t=43s)
+  - [Project Babylon - Code Reflection (2024, Paul Sandoz)](https://www.youtube.com/watch?v=6c0DB2kwF_Q&t=8s)
+  - [[VDT19] Java - Quo Vadis? by Tobias Hartmann](https://www.youtube.com/watch?v=149Q1Xbud2I) ([slides](http://cr.openjdk.java.net/~thartmann/talks/2019-Voxxed_days.pdf)) Also covers Valhalla.
 - The [OpenJDK GitHub](https://github.com/openjdk/jdk). I suggest you fork it and follow the instructions to build it yourself. That allows you to make changes to the JVM, and inspect its inner working with a debugger.
 
 Links to read more about the inner workings of C2:
 - [OpenJDK Wiki on C2 IR](https://wiki.openjdk.org/display/HotSpot/C2+IR+Graph+and+Nodes)
 - High-level article about [How the JIT compiler boosts Java performance in OpenJDK (Roland Westrelin)](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#)
 - [Master thesis by Thomas Würthinger in 2007](https://ssw.jku.at/Research/Papers/Wuerthinger07Master/Wuerthinger07Master.pdf) (now works on GraalVM). Section 3 gives a good overview over the HotSpot compilation, though since JDK-8008938 (JDK8 / 2014) tiered compilation is now the default (client compiler = C1, server compiler = C2).
-- [Slides about debugging C2 by Tobias Hartmann in 2020](https://cr.openjdk.org/~thartmann/talks/2020-Debugging_HotSpot.pdf). I hope to cover a lot of that material in this series as well.
+- [Slides about debugging C2 by Tobias Hartmann in 2020](https://cr.openjdk.org/~thartmann/talks/2020-Debugging_HotSpot.pdf) and the [Video](https://drive.google.com/file/d/100v6iYLTHdImdEQxeBu1YNtys8rSfVff/view). I hope to cover a lot of that material in this series as well.
 - [Blog by Aleksey Shipilev](https://shipilev.net/jvm/anatomy-quarks/).
 - [Blog by Roland Westrelin](https://developers.redhat.com/author/roland-westrelin).
 - And of course [my own blog](https://eme64.github.io/blog/).

@@ -71,7 +71,7 @@ AFTER: print_ideal
  66  Return  === 5 6 7 8 9 returns 65  [[ 0 ]] 
 Done
 ```
-Here a visualization of the graph (not using IGV, but my own tool):
+Here is a visualization of the graph (not using IGV, but my own tool):
 
 ![image](https://github.com/user-attachments/assets/bad657eb-da3c-4388-adcc-79a1190c476f)
 
@@ -122,7 +122,7 @@ Done
 ```
 We see that the `multiply` is inlined 3 times (at bytecodes 3, 10 and 17 of `test`). Note that we can also see the reason why a method was inlined. In this case, we found that the method is hot enough to be inlined.
 
-We can also explicitely disable inlining with `-XX:CompileCommand=dontinline,Test::test`.
+We can also explicitly disable inlining with `-XX:CompileCommand=dontinline,Test::test`.
 ```
 $ java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:CompileCommand=printinlining,Test::test -XX:CompileCommand=dontinline,Test::* Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -404,7 +404,7 @@ $3 = void
 With `find_node(65)` we can search the graph for a node with index 65.
 If it is found, it is returned and we can perform a `dump_bfs()` query on it (note that if you use a non-existing node index, a nullptr is returned and rr hangs when trying to execute `dump_bfs()` on the nullptr).
 `dump_bfs()` is a powerful tool to print various subgraphs from any arbitrary starting node, as for example `65 AddI`.
-If you want to find out more about the supported features, use `dump_bfs(0,0,"h").
+If you want to find out more about the supported features, use `dump_bfs(0,0,"h")`.
 Note that the `#` character enables colored printing which I almost always use.
 The `#` character enables colored printing for example.
 
@@ -552,13 +552,13 @@ converted the `b + c = 202 + 101` into `303`.
 Finally, `AddNode::IdealIL` does `return MulNode::make(mul_in, add, bt);`, which gives us `a * 303`.
 This is the `51 MulI` with the `303` constant input we have set the watchpoint for earlier.
 
-Note: it took me a long time to get comfortable stepping arount the C2 code with rr, and
+Note: it took me a long time to get comfortable stepping around the C2 code with rr, and
 tracing around such graph transformations. So do not be discouraged if this feels hard to
 replicate. It helped me a lot to draw IR graphs on paper, and map out the different steps.
 
  I also want to mention here that I only presented one possible way to find out where the constant folding was done with rr.
  There are many other tricks to achieve this with rr, for example, by finding out where a new node with a certain index was created.
- I will not go into that further now but I will possibly follow up with a blog post about common rr tricks at some point.
+ I will not go into that further now, but I will possibly follow up with a blog post about common rr tricks at some point.
 
 **Exercises for the Reader**
 

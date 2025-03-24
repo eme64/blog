@@ -56,7 +56,7 @@ Done
 **Compilation of Java code to Java bytecode**
 
 Java (and other JVM programming languages) are first compiled to [Java Bytecode](https://en.wikipedia.org/wiki/List_of_Java_bytecode_instructions).
-This bytecode is still platform agnostic, and needs to be executed by the JVM.
+This bytecode is still platform-agnostic, and needs to be executed by the JVM.
 The JVM can interpret the bytecode, or further compile it to platform specific machine code.
 
 We can explicitly compile our test file to bytecode in a class file:
@@ -108,7 +108,7 @@ public class Test {
 ```
 For now, you do not need to understand this bytecode in detail. On a high level, we see that there are 3 methods defined in the `Test` class:
 - `<init>`: This is the code of the default constructor, which calls the super-class `Object` constructor. Note that javac automatically added the default constructor for us even though we did not explicitly specify it.
-- `main`:  We see some `invokevirtual` for `println`, an `invokestatic` for `test`, and a `goto 10` at byte index 28 for the loop backedge.
+- `main`: We see some `invokevirtual` for `println`, an `invokestatic` for `test`, and a `goto 10` at byte index 28 for the loop backedge.
 - `test`: The two `int` arguments are put into locals `0` and `1`. The `iload_0` and `iload_1` take those arguments from the locals, and push them onto the stack. `iadd` takes the two values from the stack, and puts their addition back on the stack. `ireturn` pops that value off the stack again, and returns it.
 
 If you are interested to learn more about Java Bytecode:
@@ -124,7 +124,7 @@ Note 2: `.jar` files are simply zip-directories of various `.class` files.
 The three most commonly involved build types in my daily work are:
 - product: fast, but harder to debug with. This is the build for Java users. Does not execute any asserts in the C++ VM code. We regularly add additional verification code in the form of assertions when changing or adding new VM code. These help to catch problems earlier. But they can slow down the execution of a Java program significantly. Therefore, we drop the assertion code in product builds for maximal performance.
 - (fast)debug: runs slower than product, but executes asserts, and allows debug VM flags.
-- slowdebug: runs slower than fastdebug. The C++ compiler runs with fewer optimizations, which makes it slower but it means that the VM has more symbols available, all variables are accessible, no inlining, etc., which enables a better debugging esperience with GDB / RR.
+- slowdebug: runs slower than fastdebug. The C++ compiler runs with fewer optimizations, which makes it slower, but it means that the VM has more symbols available, all variables are accessible, no inlining, etc., which enables a better debugging experience with GDB / RR.
 
 The difference in these builds is mainly differing GCC optimization levels. And debug builds have some extra debugging flags available. And only debug builds execute asserts (i.e. additional verification).
 
@@ -156,7 +156,7 @@ From this log, we can already see a lot about how HotSpot compiles and executes 
 - The first column displays the time, when the compilation is issued in milliseconds. `Test::test` is executed after `10876` milliseconds.
 - The second column is the unique id of the compilation, which we can see counting up. Note that these ids are not always in perfect order due to compiling methods with multiple compiler threads concurrently and each taking a variable amount of time to complete.
 - The third column indicates which compiler was used. Tier 1-3 are used for C1, tier 4 is used for C2.
-- The fourth column display the name of the compiled method, and the size of its bytecode.
+- The fourth column displays the name of the compiled method, and the size of its bytecode.
 
 Usually, we are only interested in the compilations of certain classes.
 We can limit the printed compilations to specific classes, for example our `Test` class.
@@ -186,7 +186,7 @@ This presents a number of challenges and opportunities:
 - Dynamically loading new code: The JVM allows new classes to be loaded at runtime, and their methods to be invoked. An AOT compiler would not have knowledge about the dynamic classes at compile time. A JIT compiler allows new code to be compiled at runtime, and thus to reach high throughput of execution of dynamic code.
 - New optimization opportunities: we can make speculative assumptions during a compilation, which may allow us to generate faster code. If a speculative assumption is violated at runtime, i.e. the speculation check fails, we can always deoptimize, and jump back to the interpreter. Some examples:
   - If an interface only has a single implementation, we can use static calls instead of dynamic (i.e. virtual) calls. Should we ever load a second implementation of the interface, then we can recompile using dynamic calls.
-  - We can profile the execution in interpreter mode (and also in C1 mode), and use this profile information to guide our (C2) compilation. If a certain branch was never executed, we can simply avoid the compilation of that branch, and deoptimize should it ever be taken. This lowers the compile time, as we are compiling less code.
+  - We can profile the execution in interpreter mode (and also in C1 mode), and use this profile information to guide our (C2) compilation. If a certain branch was never executed, we can simply avoid the compilation of that branch, and deoptimize should it ever be taken. This lowers the compiletime, as we are compiling less code.
   - If the profiler says that a null-check has never failed, we can use implicit null-checks: we remove the null-check, and if we ever get a segmentation fault (SIGSEGV) at that place from null dereferencing, we catch the signal and deoptimize, and throw the `NullPointerException` from the interpreter.
 
 Please also read this related article by Roland Westrelin: [How the JIT compiler boosts Java performance in OpenJDK](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#).
@@ -202,7 +202,7 @@ The HotSpot JVM executes your Java (byte-)code in one of these ways:
 - C2: Once profiling has determined that the code is very hot, we want to generate highly optimized machine code. We are willing to pay the higher compilation time, because we expect the code to be executed a lot in the future. The reduction of overall execution time with faster code (ideally) outweighs the cost of spending more time on more sophisticated optimizations during C2 compilation.
 
 A few more points:
-- Profiling information is not only used for counting method invocations to track hot code but also/most importantantly for guiding C2’s aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2-compiled code would immediately deoptimize.
+- Profiling information is not only used for counting method invocations to track hot code but also/most importantly for guiding C2’s aggressive/optimistic optimizations. C2 is not only slower but there is a high risk that early C2-compiled code would immediately deoptimize.
 - This is as simplified picture. Different paths are possible, i.e. we sometimes also directly compile at C2 or stay at C1 and also different levels of profiling are possible.
 - On Stack Replacement (OSR): if we have a loop that executes very many iterations, we would like to compile it while we are in the loop. Once the backedge is taken and the code is compiled, we can enter the compiled code at that point in the code. [More about OSR in Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html).
 
@@ -229,7 +229,7 @@ Done
 We see that the code is now compiled first with C1, and then with C2.
 `Test::test()` was hot enough to be enqueued for C2 compilation.
 Without `-Xbatch`, we have finished the execution of the entire program before the method was C2 compiled.
-With `-Xbatch`, we explicitely wait for any compiltion to finish before continuing the execution in that method.
+With `-Xbatch`, we explicitly wait for any compilation to finish before continuing the execution in that method.
 We also see that the blocking behaviour has made the overall execution much slower.
 This is because the VM now blocks the execution any time a compilation needs to be made - and not just in our `Test` class but also during the JVM startup.
 
@@ -246,7 +246,7 @@ Done
 
 We can also force immediate compilation of a method before its execution, and skip the interpreter entirely, using `-Xcomp`.
 Here, it is even more important to restrict compilation (the ones excluded from compilation then run in the interpreter).
-Otherwise we have to compile all classes and methods used from startup of the JVM, which can take a long time.
+Otherwise, we have to compile all classes and methods used from startup of the JVM, which can take a long time.
 
 We can stop tiered compilation at a certain tier, for example to avoid any C2 compilations and only allow C1:
 ```
@@ -270,7 +270,7 @@ Done
 
 **A first Look at C2 IR**
 
-Most of the compler work is done in C2, and only relatively little in C1. Therefore, we focus on C2 IR.
+Most of the compiler work is done in C2, and only relatively little in C1. Therefore, we focus on C2 IR.
 
 With `-XX:+PrintIdeal`, we can display the C2 machine independent IR (intermediate representation), sometimes also called "ideal graph" or just "C2 IR", after most optimizations are done, and before code generation:
 ```

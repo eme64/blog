@@ -20,7 +20,7 @@ In [Part 3](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part03.html), I 
 
 `PhaseLoopOpts` analyses the loop structures and reshapes them. We do this work in multiple loop opts phases, iteratively we analyze the loops and transform them, then let them be cleaned up by IGVN, and then attempt another loop opts phase.
 
-Here some example optimizations:
+Here are some example optimizations:
 - Detection of loops, canonicalization to `CountedLoop` (loop trip-count phi does not overflow).
 - Turning long counted-loops into int counted-loops, and long RangeChecks into int RangeChecks if possible.
 - Remove empty loops.
@@ -31,7 +31,7 @@ Here some example optimizations:
   - Unrolling of main loop.
   - Pre loop used for alignment (on architectures where strict alignment for vectorization is required).
   - Post loop used to handle left-over iterations.
-  - RangeCheck elimination: main loop handles iterations where the RangeCheck is known to pass, pre and post loop handle the iterations before and after.
+  - RangeCheck elimination: main loop handles iterations where the RangeCheck is known to pass, pre- and post-loop handle the iterations before and after.
 - Auto vectorization (main loop).
 
 Additionally, there are some "splitting" optimizations: we split operations (e.g. add) through phis, i.e. to both merged branches, if our heuristic says that this is profitable (e.g. can be constant folded on one path). We also split ifs through phis. We do these "splitting" operations during loop opts because this allows us to have dominator information that is not available during IGVN.
@@ -134,7 +134,7 @@ Let us make a few observations about the logs above:
   - We detect the loop as a counted loop. That is the prerequisite for many other loop optimizations. We see that it iterates over the range `[0,int)`, i.e. that it starts at zero up to some limit.
 - `Predicate RC     Loop: N180/N156  limit_check profile_predicated predicated counted [0,int),+1 (9998 iters)  has_sfpt rce strip_mined`
   - RangeCheck elimination using predicates before the loop.
-- `PreMainPost`: generation of pre, main and post loops. The pre loop prepares for the main loop, the post loop cleans up any remaining iterations. This has at least two purposes: the pre loop can align vector memory accesses for the main loop, by changing the number of iterations spent in the pre loop. And in some cases RangeCheck elimination requires us to spend all iterations where the RangeCheck cannot be eliminated in the pre and post loop, ensuring that we do not need to execute RangeChecks in the main loop.
+- `PreMainPost`: generation of pre, main and post loops. The pre loop prepares for the main loop, the post loop cleans up any remaining iterations. This has at least two purposes: the pre loop can align vector memory accesses for the main loop, by changing the number of iterations spent in the pre loop. And in some cases RangeCheck elimination requires us to spend all iterations where the RangeCheck cannot be eliminated in the pre- and post-loop, ensuring that we do not need to execute RangeChecks in the main loop.
 - `Unroll 2` ... `Unroll 16`: we unroll the loop by doubling the number of iterations. Here, we pick an unrolling factor of 16 because I have an AVX512 machine that can fit 16 ints into a 64 byte vector register. On your machine this may differ, try it out!
 - `VTransform::apply`: this is a note from the auto-vectorizer, showing that we are applying the `VTransform`, i.e. we are replacing scalar operations with vector operations.
 - `Loop: N672/N156  limit_check counted [int,int),+16 (9998 iters)  main vector has_sfpt strip_mined`
@@ -154,7 +154,7 @@ allow us to narrow down types or constant fold control flow inside the loop.
 Then, we perform many more iterations of loop optimizations, until no loop can further be optimized or we hit
 a loop optimization round limit.
 
-Here an overview for `PhaseIdealLoop::build_and_optimize`:
+Here is an overview for `PhaseIdealLoop::build_and_optimize`:
 - `build_loop_tree`: analyze the loop structures: detect loops and compute dominator information.
 - `beautify_loops`: canonicalize the loop structures, needs to rerun `build_loop_tree` afterwards.
 - `build_loop_early`: For a data node, we compute the earliest control node possible, i.e. the "highest" placement in the graph.
@@ -175,14 +175,14 @@ Here an overview for `PhaseIdealLoop::build_and_optimize`:
   - `partial_peel`: partially peel the top portion of a loop, copying it to the loop entry and the backedge. This "rotates" the loop. The goal is to bring the exit test to the end of the loop, and to create a canonical (possibly counted) loop form.
   - `do_peeling`: Peel the first iteration of a loop. Make a single-iteration copy of the loop, which is executed as straight-line code before the loop. That allows for some invariant checks to only be executed in the peeled iteration, and removed from the loop body.
   - `do_unswitching`: move a loop-invariant check before the loop, copy the loop: the check inside the loops can fold to true in the true-loop and to false in the false-loop. This effectively removes that check from the loop, hoisting it before the loop.
-  - `duplicate_loop_backedge`: Sometimes multiple paths inside the loop merge (region) just before the exit check and backedge. It can be beneficial to split this region and duplicate the exit check, so that an inner (hopefully counted) loop  and an outer loop are created.
+  - `duplicate_loop_backedge`: Sometimes multiple paths inside the loop merge (region) just before the exit check and backedge. It can be beneficial to split this region and duplicate the exit check, so that an inner (hopefully counted) loop and an outer loop are created.
   - `create_loop_nest`: Convert long counted loops to int counted loops. If possible, convert the long RangeChecks to int RangeChecks, which makes RangeCheck Elimination easier later on.
   - `compute_profile_trip_cnt`: Compute the loop trip count from profile data.
   - `insert_pre_post_loops`: Convert a normal counted loop into a pre, main, and post loop structure.
     - The pre loop is used if strict alignment is required for vector memory accesses in the main loop: we keep iterating in the pre loop until we achieve alignment.
     - The main loop is unrolled and possibly vectorized.
     - The post loop handles any remaining iterations after the unrolled main loop.
-    - The pre and post loop can also be used to do RangeCheck Elimination: we remove the RangeCheck for the main loop, and execute any iterations where the RangeCheck could be out of bounds in the pre and post loop.
+    - The pre- and post-loop can also be used to do RangeCheck Elimination: we remove the RangeCheck for the main loop, and execute any iterations where the RangeCheck could be out of bounds in the pre- and post-loop.
   - `do_range_check`: Remove RangeChecks and other trip-counter vs loop-invariant tests. We do this using predicates before the loop, which deopt if they fail.
   - `insert_vector_post_loop`: insert the vectorized drain loop, so we can super-unroll the vectorized main loop, and the vectorized drain loop can handle remaining iterations faster than just the post loop.
 - `auto_vectorize`: Auto-vectorize loops (must already have been pre-main-post-ed, and unrolled).

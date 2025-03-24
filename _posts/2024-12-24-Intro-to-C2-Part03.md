@@ -34,7 +34,7 @@ Further, it already simplifies the IR graph, and keeps it smaller.
 **Getting an overview of a C2 compilation with the CITime flag**
 
 The `-XX:+CITime` flag collects timing information about a compilation, i.e. it measures how much time was spent in individual compilation phases and optimization passes.
-A JIT compiler should perform a compilation of a method reasonably fast such that we do not spend too much resources on it that we could otherwise spend on the actual program execution.
+A JIT compiler should perform a compilation of a method reasonably fast such that we do not spend too many resources on it that we could otherwise spend on the actual program execution.
 The `CITime` flag can support us in this matter but also serves at giving us a nice overview over the different C2 compilation steps
 
 Let's work with an example:
@@ -65,7 +65,7 @@ public class Test {
 ```
 
 We execute it with `-XX: CompileCommand=compileonly,Test::test` to only focus on the compilation of Test::test (as seen in part 1).
-We now additionlly use `-XX:+CITime`, and `-XX:RepeatCompilation=1000` to artificially repeat the compilation of Test::test 1000 times, so that we get a more stable measurement of the compile times:
+We now additionally use `-XX:+CITime`, and `-XX:RepeatCompilation=1000` to artificially repeat the compilation of Test::test 1000 times, so that we get a more stable measurement of the compiletimes:
 ```
 java -XX:CompileCommand=printcompilation,Test::* -XX:CompileCommand=compileonly,Test::test -Xbatch -XX:-TieredCompilation -XX:+CITime -XX:RepeatCompilation=1000 Test.java
 CompileCommand: PrintCompilation Test.* bool PrintCompilation = true
@@ -209,7 +209,7 @@ After parsing the bytecode and creating our initial C2 IR, we start with a first
 Compared to `PhaseGVN`, the `can_reshape` flag is enabled for `IGVN`, which allows `Node::Ideal` optimizations to perform
 additional "reshaping" optimizations.
 Further, `IGVN` is iterative. We have a `igvn_worklist`, that holds all nodes that we should still transform.
-And when a node is transformed (using `Ideal`, `Value`, or `Identity`), then its neighbours (the transitive useses) are added to the `igvn_worklist`,
+And when a node is transformed (using `Ideal`, `Value`, or `Identity`), then its neighbours (the transitive uses) are added to the `igvn_worklist`,
 since they may now have new optimization opportunities (hence the name "iterative"). For example, constants can propagate through the graph this way.
 `IGVN` is also used after most other major optimizations (e.g. escape analysis, and loop optimizations), to clean up the graph,
 and bring it into a canonical form again.
@@ -227,7 +227,7 @@ In the list below, I will explain some of the steps, and others I will simply sk
 - `remove_speculative_types`: skip.
 - `cleanup_expensive_nodes`: skip.
 - `PhaseVector`: helps to unbox the vector operations from the VectorAPI.
-- `PhaseRenumberLive`: remove useless nodes, and renumber the node indices stored in `Node::_idx` for each node. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbmering allows us to make the node index range more compact again since we could have already removed a lot of nodes. This also allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
+- `PhaseRenumberLive`: remove useless nodes, and renumber the node indices stored in `Node::_idx` for each node. Up to now, a lot of nodes were created, so the highest `_idx` can be quite high. But also a lot of nodes were removed. Renumbering allows us to make the node index range more compact again since we could have already removed a lot of nodes. This also allows the data-structures based on `_idx` indexing to be smaller in the following optimizations. For debugging, it can often be helpful to disable the renumbering with `-XX:-RenumberLiveNodes`.
 - `remove_root_to_sfpts_edges`: skip.
 - Escape Analysis: `do_escape_analysis` / `ConnectionGraph`: detects allocations of Java objects that do not escape the scope of the compilation, and can thus be eliminated. All fields can become local variables instead.
 - Loop Optimizations: `PhaseIdealLoop` (first 3 rounds): it analyzes the loop structures and reshapes them. See [Part 4](https://eme64.github.io/blog/2025/01/23/Intro-to-C2-Part04.html) for an introduction to loop optimizations. Some example optimizations are:
@@ -241,11 +241,11 @@ In the list below, I will explain some of the steps, and others I will simply sk
     - Unrolling of main-loop.
     - Pre-loop used for alignment (on architectures where strict alignment for vectorization is required).
     - Post-loop used to handle left-over iterations.
-    - Range Check Elimination: Let the main-loop handle those loop iterations where a range check is known to pass (i.e. we can get rid of it), while the pre and post loop handle those iteration before or afterwards where we don't know if the range check will pass (i.e. we keep the range check).
+    - Range Check Elimination: Let the main-loop handle those loop iterations where a range check is known to pass (i.e. we can get rid of it), while the pre- and post-loop handle those iterations before or afterwards where we don't know if the range check will pass (i.e. we keep the range check).
   - Auto Vectorization of the main-loop.
 - Conditional Constant Propagation (CCP): `PhaseCCP`, followed by IGVN. Note that both phases try to improve the type of nodes but take a different approach:
   - We have not looked at types in more details, yet. Each node in the IR has a type assigned which tells us what value a node could take during runtime. For example, an `AddI` node could have a type `[5..10]` which means that during runtime, the addition will result in any value between 5 and 10 (inclusive).
-  - IGVN is pessimistic by first assuming nothing about a node. This means we start with a type that covers the whole range of values. For example, an AddI node starts with type `int` which means any integer (for those who studied lattices before, we oddly call this whole range of values BOTTOM and not TOP, and vice verca). IGVN then tries to narrow a node's type iteratively.
+  - IGVN is pessimistic by first assuming nothing about a node. This means we start with a type that covers the whole range of values. For example, an `AddI` node starts with type `int` which means any integer (for those who studied lattices before, we oddly call this whole range of values BOTTOM and not TOP, and vice verca). IGVN then tries to narrow a node's type iteratively.
   - CCP is optimistic by starting with an empty type for each node (we confusingly call that empty type TOP). We then try to widen the types of all nodes by propagate the updated types through the graph in an iterative way until a fixed point is reached.
 - More Loop Optimizations: `optimize_loops`: many rounds of `PhaseIdealLoop`.
 - `process_for_post_loop_opts_igvn`: Some nodes have delayed some IGVN optimizations until after loop opts, for various reasons, including:
@@ -259,7 +259,7 @@ In the list below, I will explain some of the steps, and others I will simply sk
 
 **On Stack Replacement (OSR)**
 
-Consider a method that is invoked only a few times and then spends a lot of time in a long running loop with many iterations.
+Consider a method that is invoked only a few times and then spends a lot of time in a long-running loop with many iterations.
 Our method invocation based counting heuristic would not find that this method is actually quite hot.
 It would be great if this method is still compiled to speed up the execution.
 We could just enqueue a compilation and get the benefit when the method is called the next time.

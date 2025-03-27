@@ -70,6 +70,7 @@ Links to read more about the inner workings of C2:
 - High-level article about [How the JIT compiler boosts Java performance in OpenJDK (Roland Westrelin)](https://developers.redhat.com/articles/2021/06/23/how-jit-compiler-boosts-java-performance-openjdk#)
 - [Master thesis by Thomas Würthinger in 2007](https://ssw.jku.at/Research/Papers/Wuerthinger07Master/Wuerthinger07Master.pdf) (now works on GraalVM). Section 3 gives a good overview over the HotSpot compilation, though since JDK-8008938 (JDK8 / 2014) tiered compilation is now the default (client compiler = C1, server compiler = C2).
 - [Slides about debugging C2 by Tobias Hartmann in 2020](https://cr.openjdk.org/~thartmann/talks/2020-Debugging_HotSpot.pdf) and the [Video](https://drive.google.com/file/d/100v6iYLTHdImdEQxeBu1YNtys8rSfVff/view). I hope to cover a lot of that material in this series as well.
+- [Cliff Click's talk on C2](https://www.youtube.com/watch?v=9epgZ-e6DUU)
 - [Blog by Aleksey Shipilev](https://shipilev.net/jvm/anatomy-quarks/).
 - [Blog by Roland Westrelin](https://developers.redhat.com/author/roland-westrelin).
 - And of course [my own blog](https://eme64.github.io/blog/).

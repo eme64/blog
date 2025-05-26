@@ -22,6 +22,7 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
 - WIP: Investigate RangeCheck elimination and other issues for vectorization of MemorySegment loops ([JDK-8331659](https://bugs.openjdk.org/browse/JDK-8331659) and others).
 
 **May 2025**
+
 - Integrated: [JDK-8355094](https://bugs.openjdk.org/browse/JDK-8355094): Performance drop in auto-vectorized kernel due to split store
   - [PR is recommended reading](https://github.com/openjdk/jdk/pull/25065): Thorough investigation on impact of aligning loads vs stores, impact of splitting memory ops over cacheline boundary.
 - Integrated: [JDK-8354477](https://bugs.openjdk.org/browse/JDK-8354477): C2 SuperWord: make use of memory edges more explicit
@@ -33,6 +34,13 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
   - [JDK-8351392](https://bugs.openjdk.org/browse/JDK-8351392): C2 crash: failed: Expected Bool, but got OpaqueMultiversioning
 - WIP: [JDK-8324751](https://bugs.openjdk.org/browse/JDK-8324751): C2 SuperWord: Aliasing Analysis runtime check
   - This has been a big project, using Multiversioning implemented for [JDK-8323582](https://bugs.openjdk.org/browse/JDK-8323582). Have to refactor some of VPointer to be able to reconstruct pointers from VPointer, so I can build the runtime checks.
+- Suspended for lack of time: [JDK-8340093](https://bugs.openjdk.org/browse/JDK-8340093) Cost Modeling, will get back to it after AliasingAnalysis runtime checks.
+- Testing:
+  - Integrated: [JDK-8352020](https://bugs.openjdk.org/browse/JDK-8352020) CompileFramework: enable compilation for VectorAPI
+  - Integrated: [JDK-8351952](https://bugs.openjdk.org/browse/JDK-8351952): IR Framework: allow ignoring methods that are not compilable
+  - Integrated: [JDK-8352869](https://bugs.openjdk.org/browse/JDK-8352869): Verify.checkEQ: extension for NaN, VectorAPI and arbitrary Objects
+- WIP: [JDK-8344942](https://bugs.openjdk.org/browse/JDK-8344942): Template-Based Testing Framework
+  - This took a lot of time, lots of experiments, rounds of feedback, reviewing. But it is also very exciting, it will save us a lot of time in the future. I already found a list of bugs during prototyping.
 
 **Graphical Overview**
 

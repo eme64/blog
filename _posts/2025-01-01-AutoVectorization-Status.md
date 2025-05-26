@@ -21,6 +21,11 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
 - WIP: [JDK-8343597](https://bugs.openjdk.org/browse/JDK-8343597) C2 SuperWord: RelaxedMath for faster float reductions
 - WIP: Investigate RangeCheck elimination and other issues for vectorization of MemorySegment loops ([JDK-8331659](https://bugs.openjdk.org/browse/JDK-8331659) and others).
 
+**May 2025**
+- Integrated: [JDK-8355094](https://bugs.openjdk.org/browse/JDK-8355094): Performance drop in auto-vectorized kernel due to split store
+  - [PR is recommended reading](https://github.com/openjdk/jdk/pull/25065): Thorough investigation on impact of aligning loads vs stores, impact of splitting memory ops over cacheline boundary.
+- TODO more
+
 **Graphical Overview**
 
 Legend:

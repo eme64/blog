@@ -24,7 +24,15 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
 **May 2025**
 - Integrated: [JDK-8355094](https://bugs.openjdk.org/browse/JDK-8355094): Performance drop in auto-vectorized kernel due to split store
   - [PR is recommended reading](https://github.com/openjdk/jdk/pull/25065): Thorough investigation on impact of aligning loads vs stores, impact of splitting memory ops over cacheline boundary.
-- TODO more
+- Integrated: [JDK-8354477](https://bugs.openjdk.org/browse/JDK-8354477): C2 SuperWord: make use of memory edges more explicit
+  - Refactoring as preparation for [JDK-8324751](https://bugs.openjdk.org/browse/JDK-8324751), see below.
+- Integrated: a few follow-ups from [JDK-8323582](https://bugs.openjdk.org/browse/JDK-8323582):
+  - [JDK-8354477](https://bugs.openjdk.org/browse/JDK-8354477): C2 SuperWord: make use of memory edges more explicit
+  - [JDK-8350756](https://bugs.openjdk.org/browse/JDK-8350756): C2 SuperWord Multiversioning: remove useless slow loop when the fast loop disappears
+  - [JDK-8352587](https://bugs.openjdk.org/browse/JDK-8352587): C2 SuperWord: we must avoid Multiversioning for PeelMainPost loops
+  - [JDK-8351392](https://bugs.openjdk.org/browse/JDK-8351392): C2 crash: failed: Expected Bool, but got OpaqueMultiversioning
+- WIP: [JDK-8324751](https://bugs.openjdk.org/browse/JDK-8324751): C2 SuperWord: Aliasing Analysis runtime check
+  - This has been a big project, using Multiversioning implemented for [JDK-8323582](https://bugs.openjdk.org/browse/JDK-8323582). Have to refactor some of VPointer to be able to reconstruct pointers from VPointer, so I can build the runtime checks.
 
 **Graphical Overview**
 

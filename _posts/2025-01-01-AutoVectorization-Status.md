@@ -548,6 +548,21 @@ Legend:
                          pr: "https://github.com/openjdk/jdk/pull/21630",
                          x: x+20, y: y, color: rfe_review, radius: 5,
                          edges: [{style: "parent", name: "8344085", color: "black"}]};
+    y += 25;
+    issues["8333840"] = {desc:"wrong result for MulAddS2I",
+                         assigned:"Emanuel",
+                         jdk: 24,
+                         pr: "https://github.com/openjdk/jdk/pull/19619",
+                         x: x, y: y, color: bug_done, radius: 3,
+                         edges: []};
+    y += 25;
+    issues["8338124"] = {desc:"MulAddS2I input permutation still broken",
+                         assigned:"Emanuel",
+                         jdk: 24,
+                         pr: "https://github.com/openjdk/jdk/pull/20539",
+                         x: x, y: y, color: bug_done, radius: 3,
+                         edges: [{style: "parent", name: "8333840", color: "red"}]};
+
 
     y += 25;
     issues["8299808"] = {desc:"Investigate perf difference to ArrayFill",
@@ -665,7 +680,7 @@ Legend:
                          assigned:"Galder",
                          jdk: 25,
                          pr: "https://github.com/openjdk/jdk/pull/20098",
-                         x: x, y: y, color: rfe_review, radius: 5,
+                         x: x, y: y, color: rfe_done, radius: 5,
                          edges: []};
     y += 25;
     issues["8343597"] = {desc:"RelaxedMath for faster float reductions",
@@ -869,24 +884,56 @@ Legend:
                          x: x+20, y: y, color: rfe_done, radius: 3,
                          edges: [{style: "parent", name: "8325155", color: "blue"}]};
     y += 25;
-
     issues["8344424"] = {desc:"Some loop do not vectorize after Lilliput",
                          assigned:"-",
                          jdk: 0,
                          pr: "",
                          x: x, y: y, color: bug_open, radius: 3,
                          edges: []};
+    y += 25;
+    issues["8355094"] = {desc:"Performance drop due to split store",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/25065",
+                         x: x, y: y, color: bug_done, radius: 5,
+                         edges: []};
 
-    y += 100;
+    y += 25;
     issues["8323582"] = {desc:"AlignVector misaligned native memory",
                          assigned:"Emanuel",
-                         jdk: 0,
+                         jdk: 25,
                          pr: "https://github.com/openjdk/jdk/pull/22016",
-                         x: x, y: y, color: bug_open, radius: 5,
-                         edges: [{style: "after", name: "8343685", color: "orange"}]};
+                         x: x, y: y, color: bug_done, radius: 7,
+                         edges: []};
     tags.push({text: "Multi-version: runtime check for alignment. Infrastructure can then be used for Aliasing Analysis runtime check.",
                x: x, y: y+25, style: "color=black"});
+    y += 75;
+
+    issues["8351392"] = {desc:"Expected Bool, but got OpaqueMultiversioning",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/23943",
+                         x: x+20, y: y, color: bug_done, radius: 3,
+                         edges: [{style: "parent", name: "8323582", color: "red"}]};
     y += 25;
+    issues["8352587"] = {desc:"avoid Multiversioning for PeelMainPost",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/24183",
+                         x: x+20, y: y, color: bug_done, radius: 3,
+                         edges: [{style: "parent", name: "8323582", color: "red"}]};
+    y += 25;
+    issues["8350756"] = {desc:"remove useless slow loop",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/23865",
+                         x: x+20, y: y, color: rfe_done, radius: 3,
+                         edges: [{style: "parent", name: "8323582", color: "black"}]};
+    y += 25;
+
+
+
+
 
     // -------------------------- MemorySegment
     x = 2030;
@@ -924,22 +971,20 @@ Legend:
                          edges: []};
     y += 25;
     issues["8327209"] = {desc:"missing RCE for checkIndexL with int index etc.",
-                         assigned:"Emanuel",
+                         assigned:"Manuel",
                          jdk: 0,
                          pr: "",
                          x: x, y: y, color: rfe_open, radius: 5,
                          edges: []};
 
 
-    y += 200;
+    y += 25;
     issues["8343685"] = {desc:"Refactor VPointer with MemPointer",
                          assigned:"Emanuel",
                          jdk: 25,
                          pr: "https://github.com/openjdk/jdk/pull/21926",
-                         x: x, y: y, color: priority, radius: 7,
+                         x: x, y: y, color: rfe_done, radius: 7,
                          edges: []};
-    // TODO comment
-
     y += 25;
     issues["8331576"] = {desc:"Pointer parsing issue with CastX2P",
                          assigned:"Emanuel",
@@ -983,6 +1028,13 @@ Legend:
                          x: x+20, y: y, color: rfe_done, radius: 5,
                          edges: [{style: "parent", name: "8337221", color: "blue"}]};
     y += 25;
+    issues["8352020"] = {desc:"enable compilation for VectorAPI",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/24082",
+                         x: x+20, y: y, color: rfe_done, radius: 5,
+                         edges: [{style: "parent", name: "8337221", color: "blue"}]};
+    y += 25;
     issues["8340010"] = {desc:"Fix tests after Lilliput",
                          assigned:"Emanuel",
                          jdk: 24,
@@ -997,11 +1049,25 @@ Legend:
                          x: x, y: y, color: rfe_done, radius: 5,
                          edges: []};
     y += 25;
+    issues["8352869"] = {desc:"extension: NaN, VectorAPI, Objects",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/24224",
+                         x: x+20, y: y, color: rfe_done, radius: 5,
+                         edges: [{style: "parent", name: "8346106", color: "blue"}]};
+    y += 25;
     issues["8346107"] = {desc:"Generators: random distributions for testing",
                          assigned:"Theo",
-                         jdk: 0,
+                         jdk: 25,
                          pr: "https://github.com/openjdk/jdk/pull/22941",
-                         x: x, y: y, color: priority, radius: 5,
+                         x: x, y: y, color: rfe_done, radius: 5,
+                         edges: []};
+    y += 25;
+    issues["8351952"] = {desc:"IR Framework: handle not compilable",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/24049",
+                         x: x, y: y, color: rfe_done, radius: 3,
                          edges: []};
     y += 25;
     issues["8344942"] = {desc:"Template-Based Testing Framework",
@@ -1059,18 +1125,28 @@ Legend:
                          jdk: 0,
                          pr: "",
                          x: x, y: y, color: priority, radius: 7,
-                         edges: [{style: "after", name: "8323582", color: "orange"}]};
+                         edges: [{style: "parent", name: "8323582", color: "orange"}]};
     tags.push({text: "Especially important for MemorySegment, where we never statically know if they alias.",
                x: x, y: y+25, style: "color=black"});
 
-    x = 2250;
+    y += 75;
+    issues["8354477"] = {desc:"make use of memory edges more explicit",
+                         assigned:"Emanuel",
+                         jdk: 25,
+                         pr: "https://github.com/openjdk/jdk/pull/24613",
+                         x: x+20, y: y, color: rfe_done, radius: 3,
+                         edges: [{style: "parent", name: "8324751", color: "blue"}]};
+
+
+
+    x = 750;
     y = 650;
     issues["8340093"] = {desc:"Implement Cost-Model",
                          assigned:"Emanuel",
                          jdk: 0,
                          pr: "https://github.com/openjdk/jdk/pull/20964",
                          x: x, y: y, color: priority, radius: 7,
-                         edges: [{style: "after", name: "8343685", color: "orange"}]};
+                         edges: []};
     tags.push({text: "Cost-Model enables: reductions, shuffle, extract, if-conversion, ... all introduce additional nodes that have additional cost.",
                x: x, y: y+50, style: "color=black"});
     y += 25;

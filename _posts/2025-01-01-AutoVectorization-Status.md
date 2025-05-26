@@ -41,6 +41,14 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
   - Integrated: [JDK-8352869](https://bugs.openjdk.org/browse/JDK-8352869): Verify.checkEQ: extension for NaN, VectorAPI and arbitrary Objects
 - WIP: [JDK-8344942](https://bugs.openjdk.org/browse/JDK-8344942): Template-Based Testing Framework
   - This took a lot of time, lots of experiments, rounds of feedback, reviewing. But it is also very exciting, it will save us a lot of time in the future. I already found a [list of bugs](https://bugs.openjdk.org/issues/?jql=labels%20%3D%20template-framework) during prototyping.
+ 
+**Outlook / Priorities**
+- Using Template Framework
+- Aliasing Analysis runtime Checks
+- Getting back to Cost Model / Reductions etc.
+
+**TO Add Below**
+- [JDK-8357530](https://bugs.openjdk.org/browse/JDK-8357530): C2 SuperWord: Diagnostic flag AutoVectorizationOverrideProfitability
 
 **Graphical Overview**
 

@@ -49,6 +49,7 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
 
 **TO Add Below**
 - [JDK-8357530](https://bugs.openjdk.org/browse/JDK-8357530): C2 SuperWord: Diagnostic flag AutoVectorizationOverrideProfitability
+- Visualization of the different JDK versions -> see progression
 
 **Graphical Overview**
 

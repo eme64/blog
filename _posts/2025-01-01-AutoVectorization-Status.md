@@ -40,7 +40,7 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
   - Integrated: [JDK-8351952](https://bugs.openjdk.org/browse/JDK-8351952): IR Framework: allow ignoring methods that are not compilable
   - Integrated: [JDK-8352869](https://bugs.openjdk.org/browse/JDK-8352869): Verify.checkEQ: extension for NaN, VectorAPI and arbitrary Objects
 - WIP: [JDK-8344942](https://bugs.openjdk.org/browse/JDK-8344942): Template-Based Testing Framework
-  - This took a lot of time, lots of experiments, rounds of feedback, reviewing. But it is also very exciting, it will save us a lot of time in the future. I already found a list of bugs during prototyping.
+  - This took a lot of time, lots of experiments, rounds of feedback, reviewing. But it is also very exciting, it will save us a lot of time in the future. I already found a [list of bugs](https://bugs.openjdk.org/issues/?jql=labels%20%3D%20template-framework) during prototyping.
 
 **Graphical Overview**
 

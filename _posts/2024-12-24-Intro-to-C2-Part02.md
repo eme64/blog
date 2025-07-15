@@ -207,14 +207,14 @@ control and see how it links to the C++ code of the compiler.
 
 Many are familiar with [gdb](https://en.wikipedia.org/wiki/GNU_Debugger), a commonly used debugger for C / C++ / assembly.
 [rr](https://github.com/rr-debugger/rr) provides an enhancement to gdb, by allowing reverse-execution.
-This has been an essencial tool when debugging the C2 compiler:
+This has been an essential tool when debugging the C2 compiler:
 I often see a state of the IR, and wonder how we got there.
 Then I can set watchpoints or breakpoints, and let rr reverse execute, leading
 me to an earlier state that hopefully gives me more information about what happened
 and why.
 
 You should probably consult an online tutorial if you have never used it.
-Essencially, it supports the "navigation" commands from gdb, but you can put `reverse-` in from to go backwards (e.g. `reverse-step`, `reverse-continue`, `reverse-next` - or the corresponding shortcuts: `rs`, `rc`, and `rn`, respectively).
+Essentially, it supports the "navigation" commands from gdb, but you can put `reverse-` in from to go backwards (e.g. `reverse-step`, `reverse-continue`, `reverse-next` - or the corresponding shortcuts: `rs`, `rc`, and `rn`, respectively).
 I will simply present how I use rr below, but that
 will not give you a complete picture of what you can do with rr.
 

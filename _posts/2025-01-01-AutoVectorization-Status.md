@@ -51,6 +51,8 @@ Related blog post: [C2 AutoVectorizer Improvement Ideas](https://eme64.github.io
 - [JDK-8357530](https://bugs.openjdk.org/browse/JDK-8357530): C2 SuperWord: Diagnostic flag AutoVectorizationOverrideProfitability
 - Visualization of the different JDK versions -> see progression
 - [JDK-8358235](https://bugs.openjdk.org/browse/JDK-8358235): Generators: extend for byte, short, char
+- https://bugs.openjdk.org/browse/JDK-8342692
+- https://bugs.openjdk.org/browse/JDK-8356176
 
 **Graphical Overview**
 

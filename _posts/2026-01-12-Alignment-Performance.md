@@ -5,9 +5,11 @@ date: 2026-01-12
 
 TODO
 
-**TODO**
+**Links**
 
-TODO
+[PR Auto Vectorization Alignment Performance Regression](https://github.com/openjdk/jdk/pull/25065)
+
+[Section on Alignment in JVMLS 2025 Talk](https://www.youtube.com/watch?v=UVsevEdYSwI&t=1576s)
 
 **Please leave a comment below**
 

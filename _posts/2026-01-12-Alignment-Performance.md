@@ -53,7 +53,7 @@ In a loop, we load vectors from one array and store them into another array.
 But we can configure the offset of the loads and stores.
 If we visualize the performance numbers, we get something like this:
 
-<img width="700" alt="image" src="https://github.com/user-attachments/assets/71bfce7e-cbb8-4587-811f-001c102e8b26" />
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/71bfce7e-cbb8-4587-811f-001c102e8b26" />
 
 I measured this on an `x64` machine with `AVX512` support. The vectors are 64 bytes long, and contain 16 ints of 4 bytes each.
 A cacheline is also 64 bytes long. This explains the repetitive pattern in both directions: every 16 elements we have alignment

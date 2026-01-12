@@ -3,6 +3,25 @@ title: "Performance impact of Alignment"
 date: 2026-01-12
 ---
 
+An important topic in SIMD vectorization is alignment of memory accesses, i.e. loads and stores.
+There is an impact on any form of vectorization, including auto-vectorization and explicit vectorization (e.g. with the Vector API).
+
+**Some architectures allow only aligned access**
+
+Some architectures, and especially older ones, only allow aligned access. If the address is unaligned on such a platform, then one either gets an error
+(e.g. SIGBUS) or a wrong execution (e.g. address is truncated, and the access happens at an unexpected location).
+
+This makes vectorization substantially more difficult. For program correctness, the compiler must be able to prove that the address
+is aligned, otherwise it cannot use vector instructions. Personally, I've had to spend quite a bit of time on re-thinking and
+proving our implementation of alignment for platforms with strict alignment requirements
+(see [Bug-Fix PR](https://github.com/openjdk/jdk/pull/14785)).
+
+**Most modern CPUs have fast unaligned access**
+
+TODO
+
+**Problem: crossing cacheline boundary**
+
 TODO
 
 **Links**

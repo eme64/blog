@@ -55,11 +55,49 @@ If we visualize the performance numbers, we get something like this:
 
 <img width="1754" height="830" alt="image" src="https://github.com/user-attachments/assets/71bfce7e-cbb8-4587-811f-001c102e8b26" />
 
+I measured this on an `x64` machine with `AVX512` support. The vectors are 64 bytes long, and contain 16 ints of 4 bytes each.
+A cacheline is also 64 bytes long. This explains the repetitive pattern in both directions: every 16 elements we have alignment
+and in between we have misalignment.
+We get the best performance if we have both loads and stores aligned (green).
+And we get the worst performance if both loads and stores are misaligned (red).
+The performance impact is `50%` between the worst and best case.
+If we could only have loads aligned or only stores aligned, we should pick aligning stores, with a `20%` performance difference.
+
+TODO: show plot with smaller vectors, and on NEON?
+
+TODO: note on misalignment vs scalar performance?
+
+**Impact on Auto Vectorization**
+
+My personal motivation for diving deeper into alignment was a performance regression in the auto vectorizer
+(see [Bug-Fix PR](https://github.com/openjdk/jdk/pull/25065)).
+In the C2 auto vectorizer, we use a scalar pre-loop to align the memory address, such that the
+vectorized main-loop has the address aligned and gets better performance.
+However, if there are multiple accesses, we can only pick one for alignment.
+Especially on `x64` machines, the performance penalty for misaligned stores is much worse than for misaligned loads.
+Unfortunately, I had accidentally swapped to aligning loads rather than stores and that led to a `20%` regression.
+
+**Impact on the Vector API**
+
+With the Vector API, alignment is the responsibility of the user.
+The compiler cannot auto-align the vectors in memory (at least not without some extreme compiler heroics like scalarizing and re-vectorizing).
+
+However, as of JDK26, the user has no way to know the alignment of arrays.
+Generally, the headers of arrays are 8 byte aligned just like any other Objects in Java.
+But the payload (the 0th element) is at some offset of 12 or 16 bytes depending on JVM configuration on element type.
+Additionally, the Garbage Collector can move the array at any point, and change the alignment to a different 8 byte alignment.
+If one is stuck using arrays, it is generally still worth vectorizing: the cost of misalignment does not outweigh the performance gain on vectorization in almost all cases.
+But you may get slightly unpredictable performance: sometimes the accesses are aligned and sometimes not.
+If you really must get the absolute maximum performance, then the recommendation is to use
+[off-heap (native) memory](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/Arena.html#allocate(long,long)).
 
 **Links**
 
+A while ago, I worked on a performance regression that was due to accidentally aligning to
+loads rather than stores. The PR contains lots of plots, explanations and further related topics:
 [PR Auto Vectorization Alignment Performance Regression](https://github.com/openjdk/jdk/pull/25065)
 
+My JVMLS 2025 talk also mentions the performance impact of alignment:
 [Section on Alignment in JVMLS 2025 Talk](https://www.youtube.com/watch?v=UVsevEdYSwI&t=1576s)
 
 **Please leave a comment below**

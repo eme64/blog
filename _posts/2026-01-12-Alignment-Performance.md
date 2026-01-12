@@ -1,4 +1,4 @@
----
+<img width="1754" height="830" alt="image" src="https://github.com/user-attachments/assets/3cd5cdbc-e723-4910-8e1f-30280d068dd1" />---
 title: "Performance impact of Alignment"
 date: 2026-01-12
 ---
@@ -38,6 +38,23 @@ Most of the time, reality lies somewhere in between.
 In my experience, cacheline boundaries are the most impactful. However, there are also platforms with additional constraints.
 For example, the `aarch64 Neoverse N1` optimization guide talks about performance penalties not just for loads that cross cacheline
 boundaries (64 byte) but also stores that cross 16 byte boundaries ([Section 4.5 Load/Store alignment](https://developer.arm.com/documentation/109896/latest/)).
+
+**Visualizing the Performance Impact of (un)aligned Loads and Stores**
+
+To visualize the performance impact of alignment, [I wrote some benchmarks](https://github.com/openjdk/jdk/pull/25065).
+Below you can see a simplified version of it:
+```java
+for (int i = 0; i < limit; i += SPECIES.length()) {
+    var v = IntVector.fromArray(SPECIES, arr1, i + offset_load);
+    v.intoArray(arr0, i + offset_store);
+}
+```
+In a loop, we load vectors from one array and store them into another array.
+But we can configure the offset of the loads and stores.
+If we visualize the performance numbers, we get something like this:
+
+<img width="1754" height="830" alt="image" src="https://github.com/user-attachments/assets/71bfce7e-cbb8-4587-811f-001c102e8b26" />
+
 
 **Links**
 

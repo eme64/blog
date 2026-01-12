@@ -18,7 +18,9 @@ proving our implementation of alignment for platforms with strict alignment requ
 
 **Most modern CPUs have fast unaligned access**
 
-TODO
+That said: most modern CPUs allow unaligned access, and the performance is often as fast or only a little slower than aligned access.
+Every platform and miro-architecture behaves a litle different. But often unaligned accesses that do not cross cacheline boundaries
+are as fast as aligned accesses.
 
 **Problem: crossing cacheline boundary**
 

@@ -24,6 +24,13 @@ are as fast as aligned accesses.
 
 **Problem: crossing cacheline boundary**
 
+When a memory access crosses a cacheline boundary, it is split into two accesses, one per cacheline.
+
+<img width="964" height="437" alt="image" src="https://github.com/user-attachments/assets/cc433569-d9ab-4997-8ade-9410e7296964" />
+
+This means one now has more memory accesses going through the memory unit of the CPU, and that can slow down execution.
+The amount by which this affects performance depends on a few factors.
+
 TODO
 
 **Links**

@@ -1,4 +1,4 @@
-<img width="1754" height="830" alt="image" src="https://github.com/user-attachments/assets/3cd5cdbc-e723-4910-8e1f-30280d068dd1" />---
+---
 title: "Performance impact of Alignment"
 date: 2026-01-12
 ---

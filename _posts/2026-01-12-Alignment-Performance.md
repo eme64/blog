@@ -26,12 +26,18 @@ are as fast as aligned accesses.
 
 When a memory access crosses a cacheline boundary, it is split into two accesses, one per cacheline.
 
-<img width="964" height="437" alt="image" src="https://github.com/user-attachments/assets/cc433569-d9ab-4997-8ade-9410e7296964" />
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/cc433569-d9ab-4997-8ade-9410e7296964" />
 
 This means one now has more memory accesses going through the memory unit of the CPU, and that can slow down execution.
 The amount by which this affects performance depends on a few factors.
+Simply put, it depends on the fraction of memory accesses that are split, and if memory accesses are the bottleneck.
+If there are only very few memory accesses, and we are heavily compute-bound, then splitting those few memory accesses probably has very little impact on performance.
+However, if the memory units are already the bottleneck, and we split all memory accesses we cound in theory get only half the execution speed.
+Most of the time, reality lies somewhere in between.
 
-TODO
+In my experience, cacheline boundaries are the most impactful. However, there are also platforms with additional constraints.
+For example, the `aarch64 Neoverse N1` optimization guide talks about performance penalties not just for loads that cross cacheline
+boundaries (64 byte) but also stores that cross 16 byte boundaries ([Section 4.5 Load/Store alignment](https://developer.arm.com/documentation/109896/latest/)).
 
 **Links**
 

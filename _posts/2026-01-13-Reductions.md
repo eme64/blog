@@ -31,7 +31,10 @@ for (int i = 0; i < a.length; i++) {
 **Parallel Reductions**
 
 Computing such a reduction looks like a very sequential task: we can only compute the next addition if all the previous
-additions are complete. However, one can compute some reductions in parallel.
+additions are complete. We get this very long sequential chain of reduction operations, and this chain completely
+determines the latency of our computation.
+However, one can compute some reductions in parallel.
+
 If we have `N` threads, we can chop our array into `N` chunks, and each thread computes the sum over its chunk.
 Now, we only need to sum up the `N` partial sums to get the total sum.
 This can speed up our computation by a factor of up to `N`, since the partial sums from the chunks can be computed in parallel,
@@ -64,7 +67,42 @@ or [clang -ffast-math](https://clang.llvm.org/docs/UsersManual.html#cmdoption-ff
 
 **Vectorizing Reductions**
 
-TODO
+While we can get speedups for reductions using multiple threads, we can also use our CPU's SIMD vector registers,
+which open parallelism within a single thread.
+
+Let's look the sum over an array of ints. Below, I show the
+C2 intermediate representation of the loop. We initialize our `sum` variable with a `0`, and in each iteration,
+we add a new value `v` (the i'th array element) to our `sum`.
+But this is a completely sequential implementation of our sum, and the execution time would be dominated
+by the latency of the sequential reduction chain.
+In an attempt to optimimize, we could unroll the loop (e.g. by a factor of 4):
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/d18da4c6-eebb-4d2c-8172-19d19f765ed5" />
+
+However, so far we still have a sequential reduction chain.
+We can probably vectorize the values `[v0, v1, v2, v3]`, since they can be computed in parallel (element-wise).
+But what can we do about the additions of the reduction?
+They are decidedly not parallel, and clearly their operations would cross lanes!
+
+A naive implementation would be to load our `v` values with a vector load operation `LoadV`,
+and then sequentially extract every element from the vector, and adding up the values in sequential order.
+This has one benefit: we have not had to reorder the reduction, and so this approach can be used for any
+operator (including floating-point addition and multiplication). But the downsides are quite severe:
+rather than decreasing the number of instructions, we have increased them (`n` additions vs `n` additions and `n` extracts).
+And we still have the same issue with the latency of the sequential reduction.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/561b62c4-6146-40f9-b738-e45dc2739704" />
+
+A more performant approach is the recursive folding reduction: we load our values into a single vector register,
+and then split into two halves and add the two halves element-wise. This gives us a new register with
+only half the number of elements. We repeat the split-and-element-wise-add approach, reducing the number
+of elements in every step, until we have a single element left.
+This allows us to reduce the `n`-element vector to its partial sum in `log(n)` steps.
+Our scalar loop variable `sum` now only needs a single addition for each partial sum.
+This helps us with our latency problem: we now only have `1/n`'th as many addition operations
+on the critical latency path of the `sum` variable.
+
+TODO: do the same with VectorAPI, show performance results. And then continue the story.
 
 **Links**
 

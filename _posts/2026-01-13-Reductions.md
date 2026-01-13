@@ -144,21 +144,36 @@ we only have a single assembly instruction for `AddV`.
 
 **JDK26: Finally Vectorizing Simple Reductions**
 
-With JDK26, C2 is finally vectorizing simple reductions by default, using a cost-model that ensures we only
+With JDK26, C2 is finally auto vectorizing simple reductions by default, using a cost-model that ensures we only
 vectorize reductions when it is profitable ([JDK-8340093](https://github.com/openjdk/jdk/pull/27803)).
 The cost-model adds up the cost of every IR node inside the loop. In the cases where we were able
 to move the `AddReductionV` outside the loop, we do not have to count its cost (it would be high!),
 and instead only count the cost of the much cheaper `AddV`.
 
-The result is that now we are able to get really good performance for ...
+As a consequence, we can now expect really good performance for reductions with primitive types
+`int`, `long`, `float` and `double`, and the operators `min`, `max`, `and`, `or` and `xor`.
+And for `add` and `mul` we get good fast performance for `int` and `long`.
+But for `float` and `double` we cannot make `add` and `mul` faster than the scalar performance,
+because we cannot reorder the reduction due to rounding issues.
+There is still a small caveat: the input values to the reduction must also be auto vectorizable,
+and that currently only works if we can perform consecutive loads from an array or MemorySegment.
 
 TODO: performance results
 
 **Vectorized Reductions in the Vector API**
 
 Since JDK16, the Vector API is available in incubator state.
+The [reduceLanes](https://download.java.net/java/early_access/jdk26/docs/api/jdk.incubator.vector/jdk/incubator/vector/IntVector.html#reduceLanes(jdk.incubator.vector.VectorOperators.Associative))
+operation allows us to reduce a vector to a scalar.
+For most operations, the recursive folding approach is used, even for floating-point reductions
+(see [reduceLanes](https://download.java.net/java/early_access/jdk26/docs/api/jdk.incubator.vector/jdk/incubator/vector/IntVector.html#reduceLanes(jdk.incubator.vector.VectorOperators.Associative))).
+The implication for `float` and `double` reductions for `add` and `mul` is that the order of reduction
+is explicitly not specified, and the result may be computed with a different order each time,
+delivering different rounding results for different invocations.
+For example, if executed with the interpreter, the reduction order may be sequential, but when compiled
+the order could be a recursive folding order.
 
-TODO: do the same with VectorAPI, show performance results. And then continue the story.
+TODO: code and performance results.
 
 **Links**
 

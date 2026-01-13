@@ -102,6 +102,62 @@ Our scalar loop variable `sum` now only needs a single addition for each partial
 This helps us with our latency problem: we now only have `1/n`'th as many addition operations
 on the critical latency path of the `sum` variable.
 
+In JDK9, reductions were first auto vectorized ([JDK-8074981](https://bugs.openjdk.org/browse/JDK-8074981)).
+For the operations that permit it, the recursive folding was used. For the other operations
+(float/double add/mul) we use the sequential reduction, where all elements have to be extracted
+from the vector. But once the patch was integrated, it was discovered that there were some
+speedups, but sadly also some performance regressions:
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/4c55c095-c61a-46ee-9857-6b89a4071d50" />
+
+In the plot above, we can see the performance numbers for `add` and `mul` reductions on `int`, `long`, `float` and `double` arrays.
+Any performance below `1` indicates a speedup for vectorization, and performance above `1` indicates a slowdown
+(scalar would have been faster).
+Still in JDK9, it was therefore determined that "simple" reductions and 2-element vector reductions are not all profitable,
+and their vectorization was disabled ([JDK-8078563](https://bugs.openjdk.org/browse/JDK-8078563)).
+Any further analysis was postponed at this time, and not taken up for a long time.
+
+**Futher Optimizing Reduction Vectorization**
+
+In JDK21, I was able to optimize some vectorized reductions, by moving the expensive cross-lane
+reduction after the loop, and using lane-wise vector accumulators inside the loop
+([JDK-8302652](https://github.com/openjdk/jdk/pull/13056)).
+The idea is to use a vector-accumulator instead of a scalar `sum` variable.
+We accumulate partial sums in the elements, and only after the loop do we reduce the partial
+sums of the elements down to the total sum.
+This means that the expensive cross-lane reduction operation can be moved outside the loop
+and is only executed once, and inside the loop we can simply use element-wise operations.
+
+Below, we see how this works on an add-reduction. The left illustrates the vectorized reduction
+with the `AddReductionV` (reduction across lanes using recursive folding) inside the loop.
+The `AddReductionV` is implemented with many assembly instructions which makes it expensive/slow.
+
+The right illustrates the optimized vectorized reduction. Instead of a scalar `sum` variable,
+we have a vectorized `accV` register that holds the partial sums. We initialize the vector
+to all zeros, and elemen-wise add (`AddV`) the vector `v` of new values to our `accV`.
+Once the loop has completed, the `accV` needs to be reduced down to a single value
+using `AddReductionV` only once. This makes the execution of the loop much faster,
+because instead of executing many instructions per iteration for a `AddReductionV`,
+we only have a single assembly instruction for `AddV`.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/07ff9d0a-d36e-42aa-9e14-f71d93c6db32" />
+
+**JDK26: Finally Vectorizing Simple Reductions**
+
+With JDK26, C2 is finally vectorizing simple reductions by default, using a cost-model that ensures we only
+vectorize reductions when it is profitable ([JDK-8340093](https://github.com/openjdk/jdk/pull/27803)).
+The cost-model adds up the cost of every IR node inside the loop. In the cases where we were able
+to move the `AddReductionV` outside the loop, we do not have to count its cost (it would be high!),
+and instead only count the cost of the much cheaper `AddV`.
+
+The result is that now we are able to get really good performance for ...
+
+TODO: performance results
+
+**Vectorized Reductions in the Vector API**
+
+Since JDK16, the Vector API is available in incubator state.
+
 TODO: do the same with VectorAPI, show performance results. And then continue the story.
 
 **Links**

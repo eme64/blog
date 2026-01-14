@@ -26,7 +26,7 @@ are as fast as aligned accesses.
 
 When a memory access crosses a cacheline boundary, it is split into two accesses, one per cacheline.
 
-<img width="600" alt="image" src="https://github.com/user-attachments/assets/cc433569-d9ab-4997-8ade-9410e7296964" />
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/071ef882-19ce-4417-a27f-6e2fafe440dc" />
 
 This means one now has more memory accesses going through the memory unit of the CPU, and that can slow down execution.
 The amount by which this affects performance depends on a few factors.
@@ -53,7 +53,7 @@ In a loop, we load vectors from one array and store them into another array.
 But we can configure the offset of the loads and stores.
 If we visualize the performance numbers, we get something like this:
 
-<img width="600" alt="image" src="https://github.com/user-attachments/assets/71bfce7e-cbb8-4587-811f-001c102e8b26" />
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/71bfce7e-cbb8-4587-811f-001c102e8b26" />
 
 I measured this on an `x64` machine with `AVX512` support. The vectors are 64 bytes long, and contain 16 ints of 4 bytes each.
 A cacheline is also 64 bytes long. This explains the repetitive pattern in both directions: every 16 elements we have alignment
@@ -65,7 +65,7 @@ If we could only have loads aligned or only stores aligned, we should pick align
 
 TODO: show plot with smaller vectors, and on NEON?
 
-TODO: note on misalignment vs scalar performance?
+TODO: note on misalignment vs scalar performance? - with benchmark
 
 **Impact on Auto Vectorization**
 

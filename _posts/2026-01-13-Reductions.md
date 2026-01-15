@@ -173,7 +173,91 @@ delivering different rounding results for different invocations.
 For example, if executed with the interpreter, the reduction order may be sequential, but when compiled
 the order could be a recursive folding order.
 
-TODO: code and performance results.
+Below, I have 3 implementations of a dot product.
+The inputs are random, so the outputs are random as well.
+`test1` is implemented in regular scalar Java, with normal array accesses.
+The auto vectorizer cannot change the order of operations, because the rounding results must always adhere to the Java spec.
+`test2` and `test3` are implemented with the Vector API, using `reduceLanes` that allows recursive folding.
+Thus, the rounding results can be different in different invocations.
+
+```java
+import java.util.Random;
+import jdk.incubator.vector.*;
+
+public class Test {
+    public static Random RANDOM = new Random();
+    private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
+
+    public static void main(String[] args) {
+        float[] a = new float[1024];
+        float[] b = new float[1024];
+        for (int i = 0; i < 1024; i++) {
+            a[i] = RANDOM.nextFloat();
+            b[i] = RANDOM.nextFloat();
+        }
+        // A first invocation of every implementation, should execute in interpreter.
+        float gold1 = test1(a, b);
+        float gold2 = test2(a, b);
+        float gold3 = test3(a, b);
+        // Repeat many times so compilation kicks in.
+        for (int i = 0; i < 10_000; i++) {
+            test1(a, b);
+            test2(a, b);
+            test3(a, b);
+        }
+        // A last invocation, hopefully done in compiled code.
+        float result1 = test1(a, b);
+        float result2 = test2(a, b);
+        float result3 = test3(a, b);
+        System.out.println("test1: " + gold1 + " vs " + result1 + ", diff: " + (gold1 - result1));
+        System.out.println("test2: " + gold2 + " vs " + result2 + ", diff: " + (gold2 - result2));
+        System.out.println("test3: " + gold3 + " vs " + result3 + ", diff: " + (gold3 - result3));
+    }
+
+    // Scalar implementation. Reordering of reduction not permitted by Java spec.
+    public static float test1(float[] a, float[] b) {
+        float sum = 0;
+        for (int i = 0; i < a.length; i++) {
+            sum += a[i] * b[i];
+        }
+        return sum;
+    }
+
+    // Vector API implementation, reduceLanes inside loop.
+    public static float test2(float[] a, float[] b) {
+        float sum = 0;
+        for (int i = 0; i < SPECIES.loopBound(a.length); i += SPECIES.length()) {
+            var va = FloatVector.fromArray(SPECIES, a, i);
+            var vb = FloatVector.fromArray(SPECIES, b, i);
+            sum += va.mul(vb).reduceLanes(VectorOperators.ADD);
+        }
+        return sum;
+    }
+
+    // Vector API implementation, reduceLanes after loop.
+    public static float test3(float[] a, float[] b) {
+        var sums = FloatVector.broadcast(SPECIES, 0.0f);
+        for (int i = 0; i < SPECIES.loopBound(a.length); i += SPECIES.length()) {
+            var va = FloatVector.fromArray(SPECIES, a, i);
+            var vb = FloatVector.fromArray(SPECIES, b, i);
+            sums = sums.add(va.mul(vb));
+        }
+        return sums.reduceLanes(VectorOperators.ADD);
+    }
+}
+```
+
+As I said above: the results are different every time. But `test1` always has the same result
+for both invocations.
+`test2` and `test3` can have slight differences due to reordering inside `reduceLanes`, allowed by its spec.
+```
+java Test.java
+test1: 252.9073 vs 252.9073, diff: 0.0
+test2: 252.90741 vs 252.9074, diff: 1.5258789E-5
+test3: 252.90736 vs 252.90738, diff: -1.5258789E-5
+```
+
+TODO: performance results.
 
 **Links**
 

@@ -257,7 +257,10 @@ test2: 252.90741 vs 252.9074, diff: 1.5258789E-5
 test3: 252.90736 vs 252.90738, diff: -1.5258789E-5
 ```
 
-TODO: performance results.
+In the code above, you might be wondering: "what if the array size is not a multiple of the vector length"?
+You would have to add a "scalar tail-loop", see the `dotProductF` example in [JDK-8373026](https://github.com/openjdk/jdk/pull/28639).
+
+TODO: performance results. About 5x on my AVX512 laptop - it will vary on a different machine.
 
 **Links**
 

@@ -158,7 +158,15 @@ because we cannot reorder the reduction due to rounding issues.
 There is still a small caveat: the input values to the reduction must also be auto vectorizable,
 and that currently only works if we can perform consecutive loads from an array or MemorySegment.
 
-TODO: performance results
+Below, I measured the performance of `int` addition reductions, for different JDK versions.
+We can see that with the introduction of reduction vectorization in JDK9 we get speedups
+for non-simple reductions (i.e. `dotProduct` and `big`). And then in JDK21 we could further speed up
+those non-simple reductions by moving the reduction out of the loop and using a vector accumulator
+instead. And finally in JDK26 we also get fast simple reductions. The results below are measured
+on my `AVX512` laptop.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/696e9134-eddf-48ef-8953-991fb1e4f42c" />
+
 
 **Vectorized Reductions in the Vector API**
 

@@ -100,12 +100,6 @@ And very similarly on `NEON` with 8-byte (2 int) vectors (though more noisy):
 
 Generally, it seems that on this `NEON` machine, alignment only can make about a `10%` performance difference.
 
-**Vectorization is usually Profitable it even without Alignment**
-
-Vectorization usually leads speedups of large factors.
-And the loss in performance due to misalignment is usually rather a small percentage.
-Thus, it is reasonable to worry about vectorizing first, and only worry about alignment if even more performance is required.
-
 **Impact on Auto Vectorization**
 
 My personal motivation for diving deeper into alignment was a performance regression in the auto vectorizer
@@ -129,6 +123,12 @@ If one is stuck using arrays, it is generally still worth vectorizing: the cost 
 But you may get slightly unpredictable performance: sometimes the accesses are aligned and sometimes not.
 If you really must get the absolute maximum performance, then the recommendation is to use
 [off-heap (native) memory](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/Arena.html#allocate(long,long)).
+
+**Vectorization is usually Profitable it even without Alignment**
+
+Vectorization usually leads speedups of large factors.
+And the loss in performance due to misalignment is usually rather a small percentage.
+Thus, it is reasonable to worry about vectorizing first, and only worry about alignment if even more performance is required.
 
 **Links**
 

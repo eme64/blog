@@ -68,21 +68,26 @@ I ran [this benchmark](https://github.com/openjdk/jdk/pull/25065) `java Benchmar
 but with different sizes.
 
 On my `AVX512` laptop with 64-byte (16 ints) vector:
+
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/c82f80b2-d45c-45a5-a7ec-4fe863c7c5c2" />
 
 On my `AVX512` laptop with 16-byte (4 ints) vector:
+
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/52d6b050-24b4-4624-bbc3-002d8c934aca" />
 
 On my `AVX512` laptop with 8-byte (2 ints) vector (a bit noisy, but the pattern is still quite clear):
+
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0081c69a-28d0-4d38-981b-a79b570ed3aa" />
 
 It seems that load-alignment generally leads to better performance than store-alignment.
 
 However, on some OCI `NEON` machine, and a 16-byte (4 int) vector, I seem to get (very!) slight better performance with
 load-alignment, i.e. the green lines go vertical:
+
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/36f49623-a0ae-47f7-93e1-eeb9f2b21862" />
 
 And very similarly on `NEON` with 8-byte (2 int) vectors (though more noisy):
+
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/62249de7-eb34-48ec-8fd6-09c4f564caee" />
 
 **Impact on Auto Vectorization**

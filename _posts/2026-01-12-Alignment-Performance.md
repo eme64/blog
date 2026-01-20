@@ -66,6 +66,9 @@ If we could only have loads aligned or only stores aligned, we should pick align
 But the exact behavior depends on the vector length and your specific CPU.
 I ran [this benchmark](https://github.com/openjdk/jdk/pull/25065) `java Benchmark.java test1L1SVector 8 2560 oneArray`,
 but with different sizes.
+In the 2D plots below, I tried to show the pattern with maximum contrast (green=min, red=max).
+But it is just as important to look at the difference between minimum and maximum performance:
+they are not always equally extreme.
 
 On my `AVX512` laptop with 64-byte (16 ints) vector:
 
@@ -80,6 +83,11 @@ On my `AVX512` laptop with 8-byte (2 ints) vector (a bit noisy, but the pattern 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0081c69a-28d0-4d38-981b-a79b570ed3aa" />
 
 It seems that load-alignment generally leads to better performance than store-alignment.
+We see that especially with large vectors (e.g. 64 byte) the performance difference between alignment and non-alignment
+can make a difference of more than `100%`. With smaller vectors (e.g. 8 byte) the difference is only `20%`.
+The explanation is that with larger vectors, more of those cross cache line boundaries. For example, if all 64 byte
+vectors are misaligned, all of them must cross the 64 byte boundaries, and are thus turned into two accesses.
+If the vectors are smaller, only a fraction of them is split, leading to a lower overhead.
 
 However, on some OCI `NEON` machine, and a 16-byte (4 int) vector, I seem to get (very!) slight better performance with
 load-alignment, i.e. the green lines go vertical:
@@ -89,6 +97,14 @@ load-alignment, i.e. the green lines go vertical:
 And very similarly on `NEON` with 8-byte (2 int) vectors (though more noisy):
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/62249de7-eb34-48ec-8fd6-09c4f564caee" />
+
+Generally, it seems that on this `NEON` machine, alignment only can make about a `10%` performance difference.
+
+**Vectorization is usually Profitable it even without Alignment**
+
+Vectorization usually leads speedups of large factors.
+And the loss in performance due to misalignment is usually rather a small percentage.
+Thus, it is reasonable to worry about vectorizing first, and only worry about alignment if even more performance is required.
 
 **Impact on Auto Vectorization**
 

@@ -116,6 +116,12 @@ Any performance below `1` indicates a speedup for vectorization, and performance
 Still in JDK9, it was therefore determined that "simple" reductions and 2-element vector reductions are not all profitable,
 and their vectorization was disabled ([JDK-8078563](https://bugs.openjdk.org/browse/JDK-8078563)).
 Any further analysis was postponed at this time, and not taken up for a long time.
+Only "non-simple" reductions were now vectorized, these are reductions that do more than just load
+and accumulate: for example compute a dot-product (2 loads, 1 mul, and accumulation).
+For "simple" reductions, the expensive reduction operation dominates the runtime, the vectorized
+code can have more instructions than the scalar code. But with "non-simple" reductions, the
+additional operations are also vectorized, which can outweigh the cost of the expensive
+reduction operation.
 
 **Futher Optimizing Reduction Vectorization**
 

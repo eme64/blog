@@ -173,6 +173,18 @@ on my `AVX512` laptop, with `2048` elements in the array.
 
 <img width="700" alt="image" src="https://github.com/user-attachments/assets/696e9134-eddf-48ef-8953-991fb1e4f42c" />
 
+**Beyond JDK26: more Reductions and on to Scans**
+
+Getting simple reductions to be auto vectorized was a priority.
+But there is more work to do.
+We could vectorize more reduction operators (e.g. unsigned multiplication, saturated add/mul).
+Also polynomial reductions such as `hashCode` could be auto vectorized, possibly removing the need for intrinsics ([JDK-8345107](https://bugs.openjdk.org/browse/JDK-8345107)).
+
+A related operation is the `scan`, with the example of a `prefix-sum`.
+Where a reduction computes only the final accumulation of all values, the scan computes also all intermediate results along the way.
+There are plans to extend both the Vector API ([JDK-8339348](https://bugs.openjdk.org/browse/JDK-8339348))
+and the auto vectorizer ([JDK-8345549](https://bugs.openjdk.org/browse/JDK-8345549)) with scans.
+Even further beyond: segmented scans.
 
 **Vectorized Reductions in the Vector API**
 

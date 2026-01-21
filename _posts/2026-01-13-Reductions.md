@@ -269,9 +269,9 @@ In the code above, you might be wondering: "what if the array size is not a mult
 You would have to add a "scalar tail-loop", see the `dotProductF` example in [JDK-8373026](https://github.com/openjdk/jdk/pull/28639).
 I ran those benchmarks on my AVX512 machine, with an array with `2048` elements.
 We see a very similar speedup as with the `int` addition auto vectorization results from above.
-The Java loop is very slow because it cannot reorder the operations.
-The `v1` implementation keeps the `reduceLane` operation in the loop.
-If we move it out of the loop, we get even better performance, see `v2`:
+The `Java loop = test1` is very slow because it cannot reorder the operations.
+The `v1 = test2` implementation keeps the `reduceLane` operation in the loop.
+If we move it out of the loop, we get even better performance, see `v2 = test3`:
 
 <img width="700" alt="image" src="https://github.com/user-attachments/assets/e0232842-0ef7-403d-b039-160521253824" />
 

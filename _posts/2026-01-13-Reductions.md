@@ -163,7 +163,7 @@ We can see that with the introduction of reduction vectorization in JDK9 we get 
 for non-simple reductions (i.e. `dotProduct` and `big`). And then in JDK21 we could further speed up
 those non-simple reductions by moving the reduction out of the loop and using a vector accumulator
 instead. And finally in JDK26 we also get fast simple reductions. The results below are measured
-on my `AVX512` laptop.
+on my `AVX512` laptop, with `2048` elements in the array.
 
 <img width="700" alt="image" src="https://github.com/user-attachments/assets/696e9134-eddf-48ef-8953-991fb1e4f42c" />
 
@@ -267,8 +267,13 @@ test3: 252.90736 vs 252.90738, diff: -1.5258789E-5
 
 In the code above, you might be wondering: "what if the array size is not a multiple of the vector length"?
 You would have to add a "scalar tail-loop", see the `dotProductF` example in [JDK-8373026](https://github.com/openjdk/jdk/pull/28639).
+I ran those benchmarks on my AVX512 machine, with an array with `2048` elements.
+We see a very similar speedup as with the `int` addition auto vectorization results from above.
+The Java loop is very slow because it cannot reorder the operations.
+The `v1` implementation keeps the `reduceLane` operation in the loop.
+If we move it out of the loop, we get even better performance, see `v2`:
 
-TODO: performance results. About 5x on my AVX512 laptop - it will vary on a different machine.
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/e0232842-0ef7-403d-b039-160521253824" />
 
 **Links**
 

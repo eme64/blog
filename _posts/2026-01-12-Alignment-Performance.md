@@ -82,7 +82,7 @@ But the exact behavior depends on the vector length and your specific CPU.
 I ran [this benchmark](https://github.com/openjdk/jdk/pull/25065) `java Benchmark.java test1L1SVector 8 2560 oneArray`,
 but with different sizes.
 In the 2D plots below, I tried to show the pattern with maximum contrast (green=min, red=max).
-But it is just as important to look at the difference between minimum and maximum performance:
+But it is just as important to look at the difference between best and worst performance:
 they are not always equally extreme.
 
 On my `AVX512` laptop with 64-byte (16 ints) vector:
@@ -97,14 +97,14 @@ On my `AVX512` laptop with 8-byte (2 ints) vector (a bit noisy, but the pattern 
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0081c69a-28d0-4d38-981b-a79b570ed3aa" />
 
-It seems that load-alignment generally leads to better performance than store-alignment.
+It seems that store-alignment generally leads to better performance than store-alignment.
 We see that especially with large vectors (e.g. 64 byte) the performance difference between alignment and non-alignment
 can make a difference of more than `100%`. With smaller vectors (e.g. 8 byte) the difference is only `20%`.
 The explanation is that with larger vectors, more of those cross cache line boundaries. For example, if all 64 byte
 vectors are misaligned, all of them must cross the 64 byte boundaries, and are thus turned into two accesses.
 If the vectors are smaller, only a fraction of them is split, leading to a lower overhead.
 
-However, on some OCI `NEON` machine, and a 16-byte (4 int) vector, I seem to get (very!) slight better performance with
+However, on some Aarch64 `NEON` machine, and a 16-byte (4 int) vector, I seem to get (very!) slight better performance with
 load-alignment, i.e. the green lines go vertical:
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/36f49623-a0ae-47f7-93e1-eeb9f2b21862" />
@@ -115,11 +115,17 @@ And very similarly on `NEON` with 8-byte (2 int) vectors (though more noisy):
 
 Generally, it seems that on this `NEON` machine, alignment only can make about a `10%` performance difference.
 
+The attentive reader may have noticed that the 2D "alignment-maps" are shifted around,
+the best performance rows and columns are not always the first column or row,
+they are seemingly at arbitrary placed. The reason is that the underlaying data is based on arrays,
+and those are not necessarily aligned to the vector length. Every time one runs the visualization benchmark,
+the arrays are aligned differently, and the most performance columns and rows are accoringly different.
+
 **Impact on Auto Vectorization**
 
 My personal motivation for diving deeper into alignment was a performance regression in the auto vectorizer
 (see [Bug-Fix PR](https://github.com/openjdk/jdk/pull/25065)).
-In the C2 auto vectorizer, we use a scalar pre-loop to align the memory address, such that the
+In the C2 auto vectorizer, we use a scalar (non-vectorized) pre-loop to align the memory address, such that the
 vectorized main-loop has the address aligned and gets better performance.
 However, if there are multiple accesses, we can only pick one for alignment.
 Especially on `x64` machines, the performance penalty for misaligned stores is much worse than for misaligned loads.
@@ -132,14 +138,17 @@ The compiler cannot auto-align the vectors in memory (at least not without some 
 
 However, as of JDK26, the user has no way to know the alignment of arrays.
 Generally, the headers of arrays are 8 byte aligned just like any other Objects in Java.
-But the payload (the 0th element) is at some offset of 12 or 16 bytes depending on JVM configuration on element type.
+But the payload (the 0th element) is at some offset of 12 or 16 bytes depending on JVM configuration and on element type.
 Additionally, the Garbage Collector can move the array at any point, and change the alignment to a different 8 byte alignment.
 If one is stuck using arrays, it is generally still worth vectorizing: the cost of misalignment does not outweigh the performance gain on vectorization in almost all cases.
 But you may get slightly unpredictable performance: sometimes the accesses are aligned and sometimes not.
 If you really must get the absolute maximum performance, then the recommendation is to use
-[off-heap (native) memory](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/Arena.html#allocate(long,long)).
+[off-heap (native) memory](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/Arena.html#allocate(long,long)),
+and provide the required alignment size for the allocated memory.
 
-**Vectorization is usually Profitable it even without Alignment**
+TODO example.
+
+**Vectorization is usually Profitable even without Alignment**
 
 Vectorization usually leads to speedups of large factors.
 And the loss in performance due to misalignment is usually rather a small percentage.

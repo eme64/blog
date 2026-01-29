@@ -146,7 +146,84 @@ If you really must get the absolute maximum performance, then the recommendation
 [off-heap (native) memory](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/Arena.html#allocate(long,long)),
 and provide the required alignment size for the allocated memory.
 
-TODO example.
+Below a small demo, using a MemorySegment that either wraps an array or native (off-heap) memory.
+
+```java
+// java Test.java 16 100000 array 10000
+// java Test.java 16 100000 native 10000
+// java -XX:+UseCompactObjectHeaders Test.java 16 100000 array 10000
+
+import jdk.incubator.vector.*;
+import java.lang.foreign.*;
+import java.nio.ByteOrder;
+
+public class Test {
+    public static VectorSpecies<Integer> SPECIES;
+    public static String ALLOCATE;
+    public static int SIZE;
+    public static int REPS;
+
+    public static void main(String[] args) {
+        int vectorElements = Integer.parseInt(args[0]);
+        SPECIES = VectorSpecies.of(int.class, VectorShape.forBitSize(vectorElements * 4 * 8));
+        SIZE = Integer.parseInt(args[1]);
+        ALLOCATE = args[2];
+        REPS = Integer.parseInt(args[3]);
+        System.out.println("Welcome.");
+        System.out.println("SPECIES: " + SPECIES);
+        System.out.println("SIZE: " + SIZE);
+        System.out.println("ALLOCATE: " + ALLOCATE);
+        System.out.println("REPS: " + REPS);
+
+        for (int i = 0; i < 100; i++) {
+            run();
+        }
+    }
+
+    public static MemorySegment allocate() {
+        return switch (ALLOCATE) {
+            case "native" -> Arena.ofAuto().allocate(4 * SIZE, /* cacheline aligned*/ 64);
+            case "array" -> MemorySegment.ofArray(new int[SIZE]); // unknown alignment
+            default -> throw new RuntimeException("ALLOCATE: must be native or array");
+        };
+    }
+
+    public static void run() {
+        MemorySegment ms = allocate();
+        for (int i = 0; i < 3; i++) {
+            test(ms); // small warmup
+        }
+        long t0 = System.nanoTime();
+        for (int i = 0; i < REPS; i++) {
+            test(ms); // measurement
+        }
+        long t1 = System.nanoTime();
+        float t = (t1 - t0) * 1e-6f;
+        System.out.println("time: " + t);
+    }
+
+    public static void test(MemorySegment ms) {
+        // We are going to be lazy here, and ignore if SIZE is not divisible by the element number.
+        for (int i = 0; i < SPECIES.loopBound(SIZE); i += SPECIES.length()) {
+            var v = IntVector.fromMemorySegment(SPECIES, ms, 4L * i, ByteOrder.nativeOrder());
+            v = v.add(1);
+            v.intoMemorySegment(ms, 4L * i, ByteOrder.nativeOrder());
+        }
+    }
+}
+```
+
+I ran the benchmark in 3 configurations, always with 16 element vectors, so loading and storing vectors the size of a 64-byte cacheline:
+
+- Once with `native` memory, which is always cacheline aligned, and performance is always best.
+- Once with `array`. This array is 8-byte aligned, and the 0th element is at an offset of 16 bytes, so also 8-byte aligned. We expect a certain fraction of the arrays to have the 0th element aligned, and the others misaligned. Matching with this expectation, we see that most samples are slower, but some are faster.
+- Once with `array`, but compact object headers enabled (`-XX:+UseCompactObjectHeaders`). The array itself is also 8-byte aligned, but the offset to the 0th element is now only 12 bytes. This means the 0th element is 4-bytes off of the 8-byte alignment, and we will never have cacheline alignment. Matching with this expectation, the performance is always slow.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/b04a8f7d-6243-4d3c-bc2c-9b3b42579e8e" />
+
+If we instead run with 8 element vectors, the performance difference is still visible, but less drastic. And the array is aligned with a higher probability.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/ee7ed210-36e9-4a96-9d8d-df69778b6a5a" />
 
 **Vectorization is usually Profitable even without Alignment**
 

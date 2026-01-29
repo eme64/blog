@@ -55,7 +55,7 @@ Or simply put: we must be able to re-order the reduction. In our example with `N
 - Parallel: `(x0 + x1) + (x2 + x3)`
 
 There are a lot of operators that satisfy these properties, for example: integer addition/multiplication, min/max, logical and/or/xor.
-However, there are some that do not, for example: floating-point addition and multiplication. The reasond is the rounding error:
+However, there are some that do not, for example: floating-point addition and multiplication. The reason is the rounding error:
 
 - `a = 1e30f`, `b = -1e30f` and `c = 1e-30f`
 - `a + b + c = 1e-30f`: `a + b = 0` without any rounding. `0 + c = 1e-30f` without any rounding.
@@ -70,7 +70,7 @@ or [clang -ffast-math](https://clang.llvm.org/docs/UsersManual.html#cmdoption-ff
 While we can get speedups for reductions using multiple threads, we can also use our CPU's SIMD vector registers,
 which open parallelism within a single thread.
 
-Let's look the sum over an array of ints. Below, I show the
+Let's look at the sum over an array of ints. Below, I show the
 C2 intermediate representation of the loop. We initialize our `sum` variable with a `0`, and in each iteration,
 we add a new value `v` (the i'th array element) to our `sum`.
 But this is a completely sequential implementation of our sum, and the execution time would be dominated

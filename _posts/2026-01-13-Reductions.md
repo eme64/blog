@@ -7,7 +7,7 @@ There are a lot of examples for reductions: computing the `sum`, `product` or `m
 the [dot product](https://en.wikipedia.org/wiki/Dot_product) (sum of element-wise products),
 or even the [polynomial hash over a string](https://lemire.me/blog/2015/10/22/faster-hashing-without-effort/).
 
-I have heard that the term "reduction" comes from "dimensionality reduction", of crunching down a higher-dimensianal
+I have heard that the term "reduction" comes from "dimensionality reduction", of crunching down a higher-dimensional
 collection of numbers to a lower-dimensional one. We may for example reduce a 2-dimensional matrix to a 1-dimensional
 vector. In this post here, we are interested in reducing 1-dimensional collections (list, vector, array) to
 a 0-dimensional scalar.
@@ -73,14 +73,14 @@ And some compilers have special flags to enable these "fast math" tricks
 **Vectorizing Reductions**
 
 While we can get speedups for reductions using multiple threads, we can also use our CPU's SIMD vector registers,
-which open parallelism within a single thread.
+which allows for parallelism within a single thread.
 
 Let's look at the sum over an array of ints. Below, I show the
 C2 intermediate representation of the loop. We initialize our `sum` variable with a `0`, and in each iteration,
 we add a new value `v` (the i'th array element) to our `sum`.
 But this is a completely sequential implementation of our sum, and the execution time would be dominated
 by the latency of the sequential reduction chain.
-In an attempt to optimimize, we could unroll the loop (e.g. by a factor of 4):
+In an attempt to optimize, we could unroll the loop (e.g. by a factor of 4):
 
 <img width="700" alt="image" src="https://github.com/user-attachments/assets/d18da4c6-eebb-4d2c-8172-19d19f765ed5" />
 
@@ -92,7 +92,7 @@ But what can we do about the additions of the reduction?
 They are decidedly not parallel, and clearly their operations would cross lanes!
 
 A naive implementation would be to load our `v` values with a vector load operation `LoadV`,
-and then sequentially extract every element from the vector, and adding up the values in sequential order.
+and then sequentially extract every element from the vector, and add up the values in sequential order.
 This has one benefit: we have not had to reorder the reduction, and so this approach can be used for any
 operator (including floating-point addition and multiplication). But the downsides are quite severe:
 rather than decreasing the number of instructions, we have increased them (`n` additions vs `n` additions and `n` extracts).
@@ -130,7 +130,7 @@ code can have more instructions than the scalar code. But with "non-simple" redu
 additional operations are also vectorized, which can outweigh the cost of the expensive
 reduction operation.
 
-**Futher Optimizing Reduction Vectorization**
+**Further Optimizing Reduction Vectorization**
 
 In JDK21, I was able to optimize some vectorized reductions, by moving the expensive cross-lane
 reduction after the loop, and using lane-wise vector accumulators inside the loop
@@ -147,7 +147,7 @@ The `AddReductionV` is implemented with many assembly instructions which makes i
 
 The right illustrates the optimized vectorized reduction. Instead of a scalar `sum` variable,
 we have a vectorized `accV` register that holds the partial sums. We initialize the vector
-to all zeros, and elemen-wise add (`AddV`) the vector `v` of new values to our `accV`.
+to all zeros, and element-wise add (`AddV`) the vector `v` of new values to our `accV`.
 Once the loop has completed, the `accV` needs to be reduced down to a single value
 using `AddReductionV` only once. This makes the execution of the loop much faster,
 because instead of executing many instructions per iteration for a `AddReductionV`,

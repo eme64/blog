@@ -61,9 +61,14 @@ However, there are some that do not, for example: floating-point addition and mu
 - `a + b + c = 1e-30f`: `a + b = 0` without any rounding. `0 + c = 1e-30f` without any rounding.
 - `a + c + b = 0`: `a + c` gets rounded back to `a` because `c` is too small relative to `a`.
 
-That does not stop us from _pretending_ that the operation is associative and commutative, we may just have to live with the rounding errors
-(see [DoubleStream.sum](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/stream/DoubleStream.html#sum())
-or [clang -ffast-math](https://clang.llvm.org/docs/UsersManual.html#cmdoption-ffast-math)).
+That does not stop someone from _pretending_ that the operation is associative and commutative: one can gain speedups but at the price of different rounding errors.
+The C2 auto vectorizer must adhere to the Java specification, which does not
+allow for such "fast math" tricks, the result of floating point addition and multiplication
+must always have the same rounding result.
+However, there are some Java library methods that allow reordering
+([DoubleStream.sum](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/stream/DoubleStream.html#sum())).
+And some compilers have special flags to enable these "fast math" tricks
+([clang -ffast-math](https://clang.llvm.org/docs/UsersManual.html#cmdoption-ffast-math)).
 
 **Vectorizing Reductions**
 
@@ -81,6 +86,8 @@ In an attempt to optimimize, we could unroll the loop (e.g. by a factor of 4):
 
 However, so far we still have a sequential reduction chain.
 We can probably vectorize the values `[v0, v1, v2, v3]`, since they can be computed in parallel (element-wise).
+For example, they may be four adjacent loads that can be packed into a single
+vectorized load.
 But what can we do about the additions of the reduction?
 They are decidedly not parallel, and clearly their operations would cross lanes!
 
@@ -161,8 +168,7 @@ As a consequence, we can now expect really good performance for reductions with 
 And for `add` and `mul` we get good fast performance for `int` and `long`.
 But for `float` and `double` we cannot make `add` and `mul` faster than the scalar performance,
 because we cannot reorder the reduction due to rounding issues.
-There is still a small caveat: the input values to the reduction must also be auto vectorizable,
-and that currently only works if we can perform consecutive loads from an array or MemorySegment.
+There is still a small caveat: the input values to the reduction must also be auto vectorizable.
 
 Below, I measured the performance of `int` addition reductions, for different JDK versions.
 We can see that with the introduction of reduction vectorization in JDK9 we get speedups
@@ -287,7 +293,11 @@ In the code above, you might be wondering: "what if the array size is not a mult
 You would have to add a "scalar tail-loop", see the `dotProductF` example in [JDK-8373026](https://github.com/openjdk/jdk/pull/28639).
 I ran those benchmarks on my AVX512 machine, with an array with `2048` elements.
 We see a very similar speedup as with the `int` addition auto vectorization results from above.
-The `Java loop = test1` is very slow because it cannot reorder the operations.
+The `Java loop = test1` is very slow because the JIT compiler is not allowed
+to reorder the operations of the reduction and must maintain the semantics of
+the program with respect to the floating-point rounding.
+The Vector API explicitly allows the reordering of the reduction operations,
+and this relaxation in the semantics allows for faster performance.
 The `v1 = test2` implementation keeps the `reduceLane` operation in the loop.
 If we move it out of the loop, we get even better performance, see `v2 = test3`:
 

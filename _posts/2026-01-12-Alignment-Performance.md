@@ -97,7 +97,7 @@ On my `AVX512` laptop with 8-byte (2 ints) vector (a bit noisy, but the pattern 
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0081c69a-28d0-4d38-981b-a79b570ed3aa" />
 
-It seems that store-alignment generally leads to better performance than store-alignment.
+It seems that store-alignment generally leads to better performance than load-alignment.
 We see that especially with large vectors (e.g. 64 byte) the performance difference between alignment and non-alignment
 can make a difference of more than `100%`. With smaller vectors (e.g. 8 byte) the difference is only `20%`.
 The explanation is that with larger vectors, more of those cross cache line boundaries. For example, if all 64 byte

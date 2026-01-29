@@ -6,10 +6,19 @@ date: 2026-01-12
 An important topic in SIMD vectorization is alignment of memory accesses, i.e. loads and stores.
 There is an impact on any form of vectorization, including auto-vectorization and explicit vectorization (e.g. with the Vector API).
 
+**Definition: Alignment**
+
+Given some `address` of a memory access, and some `alignment_size`, we say that the `address` is `alignment_size`-aligned if `address % alignment_size = 0`.
+If a `alignment_size` is not explicitly stated, we usually either refer to an access being aligned to the size of the access
+(4-byte `int` access with 4-byte alignment and 8-byte Object pointers with a 8-byte alignment).
+We can also talk about cacheline-alignment, usually referring to an `alignment_size = 64` bytes.
+Note that the alignment size is a power of 2, because all relevant sizes are powers of 2.
+
 **Some architectures allow only aligned access**
 
 Some architectures, and especially older ones, only allow aligned access. If the address is unaligned on such a platform, then one either gets an error
 (e.g. SIGBUS) or a wrong execution (e.g. address is truncated, and the access happens at an unexpected location).
+Some of these platforms have specific 4-byte or 8-byte alignment requirements, others only require that an access be aligned by the access size.
 
 This makes vectorization substantially more difficult. For program correctness, the compiler must be able to prove that the address
 is aligned, otherwise it cannot use vector instructions. Personally, I've had to spend quite a bit of time on re-thinking and
@@ -25,17 +34,23 @@ are as fast as aligned accesses.
 **Problem: crossing cacheline boundary**
 
 When a memory access crosses a cacheline boundary, it is split into two accesses, one per cacheline.
+The split happens in the CPU's memory subsystem (details may vary on different architectures):
+First, the load/store is decoded from the machine code, and the address width is determined.
+The memory unit receives (or calculates) the address, and checks if the address is aligned for the access size.
+If it is not aligned, it is checked if memory boundaries (e.g. cacheline boundaries) are crossed,
+in which case the access is split into two. If it is a store, the store value is split accordingly.
+If it is a load, the fragments are combined.
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/071ef882-19ce-4417-a27f-6e2fafe440dc" />
 
-This means one now has more memory accesses going through the memory unit of the CPU, and that can slow down execution.
+Split accesses means that one now has more memory accesses going through the memory unit of the CPU, and that can slow down execution.
 The amount by which this affects performance depends on a few factors.
 Simply put, it depends on the fraction of memory accesses that are split, and if memory accesses are the bottleneck.
 If there are only very few memory accesses, and we are heavily compute-bound, then splitting those few memory accesses probably has very little impact on performance.
-However, if the memory units are already the bottleneck, and we split all memory accesses we cound in theory get only half the execution speed.
+However, if the memory units are already the bottleneck, and we split all memory accesses we could in theory get only half the execution speed.
 Most of the time, reality lies somewhere in between.
 
-In my experience, cacheline boundaries are the most impactful. However, there are also platforms with additional constraints.
+In my experience, cacheline boundaries are the most impactful for alignment. However, there are also platforms with additional memory boundaries.
 For example, the `aarch64 Neoverse N1` optimization guide talks about performance penalties not just for loads that cross cacheline
 boundaries (64 byte) but also stores that cross 16 byte boundaries ([Section 4.5 Load/Store alignment](https://developer.arm.com/documentation/109896/latest/)).
 

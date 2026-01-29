@@ -10,8 +10,8 @@ There is an impact on any form of vectorization, including auto-vectorization an
 
 Given some `address` of a memory access, and some `alignment_size`, we say that the `address` is `alignment_size`-aligned if `address % alignment_size = 0`.
 If a `alignment_size` is not explicitly stated, we usually either refer to an access being aligned to the size of the access
-(4-byte `int` access with 4-byte alignment and 8-byte Object pointers with a 8-byte alignment).
-We can also talk about cacheline-alignment, usually referring to an `alignment_size = 64` bytes.
+(4-byte `int` access with 4-byte alignment and 8-byte Object pointers with an 8-byte alignment).
+We can also talk about cacheline-alignment, usually referring to an `alignment_size = 64` byte alignment.
 Note that the alignment size is a power of 2, because all relevant sizes are powers of 2.
 
 **Some architectures allow only aligned access**
@@ -28,7 +28,7 @@ proving our implementation of alignment for platforms with strict alignment requ
 **Most modern CPUs have fast unaligned access**
 
 That said: most modern CPUs allow unaligned access, and the performance is often as fast or only a little slower than aligned access.
-Every platform and miro-architecture behaves a litle different. But often unaligned accesses that do not cross cacheline boundaries
+Every platform and miro-architecture behaves a little differently. But often unaligned accesses that do not cross cacheline boundaries
 are as fast as aligned accesses.
 
 **Problem: crossing cacheline boundary**
@@ -141,7 +141,7 @@ If you really must get the absolute maximum performance, then the recommendation
 
 **Vectorization is usually Profitable it even without Alignment**
 
-Vectorization usually leads speedups of large factors.
+Vectorization usually leads to speedups of large factors.
 And the loss in performance due to misalignment is usually rather a small percentage.
 Thus, it is reasonable to worry about vectorizing first, and only worry about alignment if even more performance is required.
 

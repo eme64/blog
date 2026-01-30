@@ -128,6 +128,7 @@ My personal motivation for diving deeper into alignment was a performance regres
 In the C2 auto vectorizer, we use a scalar (non-vectorized) pre-loop to align the memory address, such that the
 vectorized main-loop has the address aligned and gets better performance.
 However, if there are multiple accesses, we can only pick one for alignment.
+For example, if we have a load and a store access, we can only guarantee the alignment of the load or the store.
 Especially on `x64` machines, the performance penalty for misaligned stores is much worse than for misaligned loads.
 Unfortunately, I had accidentally swapped to aligning loads rather than stores and that led to a `20%` regression.
 

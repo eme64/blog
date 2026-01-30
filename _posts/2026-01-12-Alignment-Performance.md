@@ -9,9 +9,21 @@ There is an impact on any form of vectorization, including auto-vectorization an
 **Definition: Alignment**
 
 Given some `address` of a memory access, and some `alignment_size`, we say that the `address` is `alignment_size`-aligned if `address % alignment_size = 0`.
-If a `alignment_size` is not explicitly stated, we usually either refer to an access being aligned to the size of the access
-(4-byte `int` access with 4-byte alignment and 8-byte Object pointers with an 8-byte alignment).
+If a `alignment_size` is not explicitly stated, we usually either refer to an access being aligned to the size of the access. Examples:
+
+- 4-byte `int` access with 4-byte alignment
+- 8-byte Object pointers with an 8-byte alignment
+- vector access with 16 `int` elements, size of 64 bytes, with a 64-byte alignment
+
 We can also talk about cacheline-alignment, usually referring to an `alignment_size = 64` byte alignment.
+For vectors, it is important to note that the alignment is based on the total size of the vector, and not the size of the elements.
+We can also talk about the alignment of memory, or specificall a memory address.
+For example, all Java Objects (the pointers to the beginning of the Object) are 8-byte aligned.
+The elements of an array are all aligned by the size of the element. This means if we access the element in an array,
+this scalar (non-vectorized) access is always aligned. However, if we load a vector of elements from an array,
+this vector access is not guaranteed to be aligned: `int` elements are only 4-byte aligned, and a vector
+of 16 elements would require a 64-byte alignment to be aligned.
+Hence, when moving from scalar to vector code, we have to do additional work if we want to acheive alignment of our vector accesses.
 Note that the alignment size is a power of 2, because all relevant sizes are powers of 2.
 
 **Some architectures allow only aligned access**

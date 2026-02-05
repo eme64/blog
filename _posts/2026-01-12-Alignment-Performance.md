@@ -145,7 +145,7 @@ For example, if we have a load and a store access, we can only guarantee the ali
 Especially on `x64` machines, the performance penalty for misaligned stores is much worse than for misaligned loads.
 Unfortunately, I had accidentally swapped to aligning loads rather than stores and that led to a `20%` regression.
 
-**Impact on the Vector API**
+**Impact on the Vector API: single array or native MemorySegment**
 
 With the Vector API, alignment is the responsibility of the user.
 The compiler cannot auto-align the vectors in memory (at least not without some extreme compiler heroics like scalarizing and re-vectorizing).
@@ -238,6 +238,122 @@ I ran the benchmark in 3 configurations, always with 16 element vectors, so load
 If we instead run with 8 element vectors, the performance difference is still visible, but less drastic. And the array is aligned with a higher probability.
 
 <img width="700" alt="image" src="https://github.com/user-attachments/assets/ee7ed210-36e9-4a96-9d8d-df69778b6a5a" />
+
+**Impact on the Vector API: multiple arrays or native MemorySegments**
+
+In the first demo above, we worked on a single array or native MemorySegment.
+In a second demo, we copy between two arrays or native MemorySegments.
+
+```java
+// java -XX:-UseCompactObjectHeaders -XX:CompileCommand=exclude,Test::allocate --add-modules=jdk.incubator.vector Test.java 16 100000 array VectorAPI 10000 150
+// java -XX:-UseCompactObjectHeaders -XX:CompileCommand=exclude,Test::allocate --add-modules=jdk.incubator.vector Test.java 16 100000 native VectorAPI 10000 150
+// java -XX:+UseCompactObjectHeaders -XX:CompileCommand=exclude,Test::allocate --add-modules=jdk.incubator.vector Test.java 16 100000 array VectorAPI 10000 150
+// java -XX:-UseCompactObjectHeaders -XX:CompileCommand=exclude,Test::allocate --add-modules=jdk.incubator.vector Test.java 16 100000 array Loop 10000 150
+
+import jdk.incubator.vector.*;
+import java.lang.foreign.*;
+import java.nio.ByteOrder;
+import java.util.Random;
+
+public class Test {
+    public static final Random RANDOM = new Random();
+    public static VectorSpecies<Integer> SPECIES;
+    public static String ALLOCATE;
+    public static String IMPLEMENTATION;
+    public static int SIZE;
+    public static int REPS;
+    public static int SAMPLES;
+
+    public static void main(String[] args) {
+        int vectorElements = Integer.parseInt(args[0]);
+        SPECIES = VectorSpecies.of(int.class, VectorShape.forBitSize(vectorElements * 4 * 8));
+        SIZE = Integer.parseInt(args[1]);
+        ALLOCATE = args[2];
+        IMPLEMENTATION = args[3];
+        REPS = Integer.parseInt(args[4]);
+        SAMPLES = Integer.parseInt(args[5]);
+        System.out.println("Welcome.");
+        System.out.println("SPECIES: " + SPECIES);
+        System.out.println("SIZE: " + SIZE);
+        System.out.println("ALLOCATE: " + ALLOCATE);
+        System.out.println("IMPLEMENTATION: " + IMPLEMENTATION);
+        System.out.println("REPS: " + REPS);
+        System.out.println("SAMPLES: " + SAMPLES);
+
+        for (int i = 0; i < SAMPLES; i++) {
+            run();
+        }
+    }
+
+    public static MemorySegment allocate() {
+        // Allocate an array of random size to randomize the alignment of the
+        // returned array a bit. Not sure if it does much though. If this method
+        // gets compiled, the allocation of r may be optimized away, so we just
+        // exclude this method from compilation.
+        int[] r = new int[RANDOM.nextInt(64)];
+        return switch (ALLOCATE) {
+            case "native" -> Arena.ofAuto().allocate(4 * SIZE, /* cacheline aligned*/ 64);
+            case "array" -> MemorySegment.ofArray(new int[SIZE]); // unknown alignment
+            default -> throw new RuntimeException("ALLOCATE: must be native or array");
+        };
+    }
+
+    public static void callTest(MemorySegment a, MemorySegment b) {
+        switch (IMPLEMENTATION) {
+            case "Loop" ->          testLoop(a, b);
+            case "VectorAPI" ->     testVectorAPI(a, b);
+            default -> throw new RuntimeException("ALLOCATE: must be native or array");
+        };
+    }
+
+    public static void run() {
+        MemorySegment a = allocate();
+        MemorySegment b = allocate();
+        for (int i = 0; i < 3; i++) {
+            callTest(a, b); // small warmup
+        }
+        long t0 = System.nanoTime();
+        for (int i = 0; i < REPS; i++) {
+            callTest(a, b); // measurement
+        }
+        long t1 = System.nanoTime();
+        float t = (t1 - t0) * 1e-6f;
+        System.out.println(t);
+    }
+
+    public static void testLoop(MemorySegment a, MemorySegment b) {
+        for (int i = 0; i < SIZE; i++) {
+            int v = a.get(ValueLayout.JAVA_INT_UNALIGNED, 4L * i);
+            b.set(ValueLayout.JAVA_INT_UNALIGNED, 4L * i, v + 1);
+        }
+    }
+
+    public static void testVectorAPI(MemorySegment a, MemorySegment b) {
+        int i = 0;
+        for (; i < SPECIES.loopBound(SIZE); i += SPECIES.length()) {
+            var v = IntVector.fromMemorySegment(SPECIES, a, 4L * i, ByteOrder.nativeOrder());
+            v = v.add(1);
+            v.intoMemorySegment(b, 4L * i, ByteOrder.nativeOrder());
+        }
+        // Tail:
+        for (; i < SIZE; i++) {
+            int v = a.get(ValueLayout.JAVA_INT_UNALIGNED, 4L * i);
+            b.set(ValueLayout.JAVA_INT_UNALIGNED, 4L * i, v + 1);
+        }
+    }
+}
+```
+
+The effect is that we can get multiple "levels" of performance for a single benchmark.
+In the plot below, we see:
+
+- JDK25 Loop (blue): the `testLoop` benchmark did not yet vectorize with JDK25, so we get very slow performance.
+- JDK26 Loop (red): with JDK26 we are able to vectorize `testLoop`, due to the [Aliasing Runtime Check](https://eme64.github.io/blog/2026/01/14/Aliasing.html).
+- VectorAPI array (yellow): the performance is much faster than non-vectorized performance. However, there are 3 levels of performance: sometimes both arrays are aligned, sometimes only one, sometimes none.
+- Vector API array CPH (green): we get worse performance, compact object headers makes alignment worse.
+- Vector API native (purple): the native memory is cacheline aligned, so that all vector accesses are aligned. We get maximal performance.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/41067c63-b730-4967-8050-e79fbaa12b6e" />
 
 **Vectorization is usually Profitable even without Alignment**
 

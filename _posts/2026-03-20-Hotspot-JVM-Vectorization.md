@@ -54,6 +54,14 @@ In the context of Java, it is the task of the JVM to abstract
 over the complexity and differences of the individual CPUs
 and to provide a cross-platform compatible experience.
 
+Providing such a cross-platform compatible experience that still
+tries to squeeze the most performance out of every different micro architecture
+is not an easy task. But it can pay off with big performance gains.
+
+Once we have optimized the code for individual threads, we can then still scale up
+to use many threads so we can use every CPU core available on a machine, and scale
+out to multiple machines.
+
 **Why Vectorize?**
 
 TODO continue here

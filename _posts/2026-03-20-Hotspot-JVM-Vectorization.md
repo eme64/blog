@@ -4,7 +4,7 @@ date: 2026-03-20
 ---
 
 Parallel processing is used in many places to speed up computation.
-We use multiple CPU cores, GPUs with massive parrallel threading capabilities,
+We use multiple CPU cores, GPUs with massive parallel threading capabilities,
 and we even scale out to many machines and even to data centers distributed
 all over the world.
 
@@ -17,7 +17,7 @@ code enough so that it can run on a single machine or even a single CPU.
 
 **Every individual CPU is an amazing Parallel Processing Machine**
 
-Did you know that every CPU is itself can compute many operations in parallel
+Did you know that every CPU itself can compute many operations in parallel
 per cycle? Our modern CPUs with their pipeline design and multiple arithmetic
 units and usually multiple memory ports can thus schedule multiple instructions
 every cycle (one per arithmetic unit or memory port). But the instructions of
@@ -65,14 +65,14 @@ out to multiple machines. But we might not need quite as many machines any more.
 **Why Vectorize?**
 
 SIMD vectorization can significantly speed up computation.
-Of course it requires that the compuatation has some inherent parallelism,
+Of course it requires that the computation has some inherent parallelism,
 so it can be distributed over the SIMD vector elements.
 The speedup will be limited by the vector length (number of elements in the vector):
 if a vector can hold 8 `floats`, we can expect at most a 8x speedup.
 But often we get a bit less than this theoretical maximum speedup,
 especially if our computation is not compute-bound but memory-bound:
 at some point the memory throughput will be the bottleneck.
-Further, in most applications not everyting can be parallelized,
+Further, in most applications not everything can be parallelized,
 some parts are unavoidably sequential. And so we can only expect
 to speed up the parallelizable parts.
 
@@ -104,7 +104,7 @@ their guarantees for performance.
   - Pros: This happens automatically - no effort required by the programmer. On average, many programs are sped up.
   - Cons: Every compiler optimzation is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
 - _Intrinsics_: Some operations are very performance critical that they deserve special treatment. For example, there are some array, string and crypto operations that the JVM engineers decided to power them by hand-written assembly snippets (so-called intrinsics). A lot of time and effort has been invested to tune and perfect these assembly snippets - and this has to be done for each CPU micro architectures.
-  - Pros: intrinsics allow us to speed up some performance critical core library methods of the JDK. Automatic vectorization either does not succeed in these cases or simply does not (yet) acheive perfect performance.
+  - Pros: intrinsics allow us to speed up some performance critical core library methods of the JDK. Automatic vectorization either does not succeed in these cases or simply does not (yet) achieve perfect performance.
   - Cons: this comes at an immense additional effort for JVM engineers, to write, test, benchmark and maintain all these assembly snippets for the large variety of critical core library methods and CPU micro architectures.
  
 Some observations and recommendations:
@@ -116,7 +116,7 @@ Some observations and recommendations:
   - If you still need more performance, inspect the generated assembly code using a profiler, and see if vectorization happens as expected.
   - If not, see if you can replace some loops with core library methods (e.g. `Arrays.fill`, `System.arraycopy`, ...) and see if this improves performance. Some of the core library methods are powered by intrinsics which should give you optimal performance - but always benchmark anyway to be sure!
   - If performance is still not as you want, and are willing to invest more time, then the Vector API may be the solution for you. In the future, there might be vectorized algorithm libraries powered by the Vector API and written by the Java community - consider those as well.
-- Automatic vectorization is limited, and can still be improved. But it will never cover all possible code shapes. If you have important use-cases where automatic vectorization does not yet suceed, then please report them with a benchmark, so we can investigate and consider improvements to cover those use-cases.
+- Automatic vectorization is limited, and can still be improved. But it will never cover all possible code shapes. If you have important use-cases where automatic vectorization does not yet succeed, then please report them with a benchmark, so we can investigate and consider improvements to cover those use-cases.
 - Updating to a newer JDK version means you profit from improved intrinsics, more code shapes being optimized by automatic vectorization, and better support for the Vector API.
 
 Let us now look at the three models in a bit more detail.
@@ -163,7 +163,7 @@ Its goals:
 - _Clear and Concise API_: we want to be able to express a wide variety of vector compuatations. The vector lengths are generic, so that they can be adapted to the specific requirements of different hardware.
 
 We have made large progress over the last years. More and more CPU architectures are supported, more and more operations of the Vector API are compiled to vector instructions.
-A large extend of the work is done by hardware vendors these days: they ensure that the compiler knows about all the vector instructions available on the large variety of hardware.
+A large extent of the work is done by hardware vendors these days: they ensure that the compiler knows about all the vector instructions available on the large variety of hardware.
 In most cases, the Vector API already now provides massive speedups.
 
 There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degregation has not yet been tackled.

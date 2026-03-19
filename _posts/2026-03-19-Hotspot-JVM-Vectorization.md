@@ -149,7 +149,10 @@ The goal is to detect parallelism in the code: for example when the iterations o
 are independent or if a straight-line piece of code contains some isomorphic ("same kind of shape")
 instructions.
 There is a vast variety of compilers with different capabilities for automatic vectorization.
-The HotSpot JVM focuses on loops with primitive data types and independent loop iterations.
+The HotSpot JVM focuses on loops with primitive data types and independent loop iterations:
+we unroll the loop and then use the SuperWord algorithm to pack the revealed parallelism from the unrolled iterations into vectors.
+
+<img width="700" alt="Unroll and Pack into Vectors" src="https://github.com/user-attachments/assets/6647894c-a9a5-468d-94dc-b02314cb52f1" />
 
 If you are interested in more details, please [watch my JVMLS 2025 presentation on Automatic Vectorization in HotSpot](https://inside.java/2025/08/16/jvmls-hotspot-auto-vectorization/).
 
@@ -168,6 +171,21 @@ Its goals:
 We have made large progress over the last years. More and more CPU architectures are supported, more and more operations of the Vector API are compiled to vector instructions.
 A large extent of the work is done by hardware vendors these days: they ensure that the compiler knows about all the vector instructions available on the large variety of hardware.
 In most cases, the Vector API already now provides massive speedups.
+
+Here a _Quick Glance of the Vector API_.
+
+Vectors can be loaded (`fromArray`) and stored (`intoArray`):
+
+<img width="700" alt="Vector API load and store" src="https://github.com/user-attachments/assets/696d581e-d508-4b75-bb78-431796c1ea60" />
+
+We can perform arithmetic operations in lane-wise (element-wise) fashion (there is a large number of such lane-wise operators):
+
+<img width="400" alt="VectorAPI lane-wise add" src="https://github.com/user-attachments/assets/0f619e82-62e1-49a2-8b47-aecc1f65a4d6" />
+
+But there are also masked operations (to simulate control-flow), shuffle operations (to move data between the lanes),
+and operations that allow us to cast between different element types, resize vectors etc.
+
+<img width="700" alt="VectorAPI more ops" src="https://github.com/user-attachments/assets/3319a8cc-e74f-4f15-abea-48660f729650" />
 
 There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degradation has not yet been tackled.
 If an operation is not supported, we currently resort to a Java fallback implementation that allocates arrays for each operation,

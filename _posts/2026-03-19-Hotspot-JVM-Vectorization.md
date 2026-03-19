@@ -184,6 +184,32 @@ If you are interested to learn more about the Vector API:
 - [Vectorizing Reductions](https://eme64.github.io/blog/2026/01/13/Reductions.html) (has a section about Vector API)
 - [Performance impact of Alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)
 
+**Examples and Performance Benchmark Results**
+
+Recently, [I wrote some performance benchmarks](https://github.com/openjdk/jdk/pull/27315) for some `fill` and `copy` examples.
+I will show some of the results here to illustrate the performance impact of automatic vectorization and intrinsics.
+
+Running some simple hand-writtne Java loops that copy or fill arrays, on `x64 AVX2`:
+<img width="700" alt="AVX2 byte copy and fill" src="https://github.com/user-attachments/assets/fb498da6-ea27-4f36-bda2-8f1d0978f7ad" />
+
+And the same on `aarch64 NEON`:
+<img width="700" alt="NEON byte copy and fill" src="https://github.com/user-attachments/assets/a255a3ed-591d-4549-9c28-5c0406ee8e94" />
+
+Above, we can clearly see that the scalar performance (blue) scaless less well as the automatically vectorized performance (red).
+The larger the array (`num_elements`), the clearer the performance win.
+[There are some known issues for very short loops](https://bugs.openjdk.org/browse/JDK-8344085), we
+hope to address that in a future JDK version.
+
+While automatic vectorization shows clear wins, especially for loops with at least 32 iterations,
+intrinsics are sometimes tuned even better. The following plots show the performance difference
+between automatic vectorization of hand-written copy and fill loops, and the core library
+copy and fill methods backed by vectorized intrinsics. On an `x64 AVX2` machine:
+<img width="700" alt="AVX2 byte copy and fill intrinsics" src="https://github.com/user-attachments/assets/c7ded22d-8293-4c1b-86ec-6903721ba85d" />
+
+And on a `aarch64 NEON` machine:
+<img width="700" alt="NEON byte copy and fill intrinsics" src="https://github.com/user-attachments/assets/51acaf85-0e58-4bab-972e-502270305cf0" />
+
+
 **Please leave a comment below**
 
 To edit/delete a comment: click on the `date` above your comment, e.g. `just now` or `5 minutes ago`.

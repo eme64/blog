@@ -60,13 +60,52 @@ is not an easy task. But it can pay off with big performance gains.
 
 Once we have optimized the code for individual threads, we can then still scale up
 to use many threads so we can use every CPU core available on a machine, and scale
-out to multiple machines.
+out to multiple machines. But we might not need quite as many machines any more.
 
 **Why Vectorize?**
 
-TODO continue here
+SIMD vectorization can significantly speed up computation.
+Of course it requires that the compuatation has some inherent parallelism,
+so it can be distributed over the SIMD vector elements.
+The speedup will be limited by the vector length (number of elements in the vector):
+if a vector can hold 8 `floats`, we can expect at most a 8x speedup.
+But often we get a bit less than this theoretical maximum speedup,
+especially if our computation is not compute-bound but memory-bound:
+at some point the memory throughput will be the bottleneck.
+Further, in most applications not everyting can be parallelized,
+some parts are unavoidably sequential. And so we can only expect
+to speed up the parallelizable parts.
 
-****
+There is a surprising amount of problems in a vast amount of domains that
+have a large amount of inherent parallelism. And so SIMD vectorization
+is a powerful tool to speed up the computations for those problems.
+For example:
+
+- Linear Algebra: vector, matrix, tensor computations. There are many applications, including Machine Learning, AI.
+- Simulations: scientific models, games, physics engines.
+- Graphics and Audio Processing: image processing, computing visualizations, processing/synthesizing sound, encoding/decoding.
+- Cryptography: encryption and decryption, hashing, signatures.
+- Finance: time series analysis, spreadsheet calculations.
+- JDK core libraries: processing arrays, strings, crypto.
+
+Java is a widely trusted platform in a vast number of domains.
+Hence, the JVM is continuously extended and improved to enhance performance
+for those domains.
+
+**Three Vectorization Programming Models**
+
+We can name three distinct vectorization models, that differ in how you write code and
+their guarantees for performance.
+
+- _Explicit_: The programmer directly uses _vector assembly instructions_, and hence gets the guarantee that the CPU runs SIMD operations. This is not a very nice programming experience, and does not scale well: you need to rewrite your code for every CPU micro architecture. To make the explicit model more pleasant, there are higher-level language APIs such as the [intel intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html) (though this one is limited to x86 CPUs). Java's mission is to run cross-platform, and so there has been a lot of work invested into the Java Vector API that models vectors in a clear and concise Java API, but which translates down reliably to vector assembly instructions - whenever available on the CPU.
+  - Pros: The programmer has full control and freedom over the use of SIMD vectors. One does not need to rely on automatic vectorization or libraries, which all have their limitations.
+  - Cons: Writing algorithms using SIMD vectors does require rethinking your algorithms, it is more effort than just writing regular scalar code.
+- _Automatic_: Modern compilers often contain optimization phases that automatically vectorize code.
+  - Pros: This happens automatically - no effort required by the programmer. On average, many programs are sped up.
+  - Cons: Every compiler optimzation is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
+- _Intrinsics_/_Library_: TODO
+
+TODO continue here
 
 **Please leave a comment below**
 

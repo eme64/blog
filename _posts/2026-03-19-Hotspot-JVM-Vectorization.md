@@ -1,6 +1,6 @@
 ---
 title: "How the HotSpot JVM speeds up computation with SIMD Vectorization"
-date: 2026-03-20
+date: 2026-03-19
 ---
 
 Parallel processing is used in many places to speed up computation.
@@ -26,7 +26,7 @@ previous cycles are still running in parallel to the instructions that are just
 now scheduled in the current cycle.
 
 But even individual instructions can perform multiple operations:
-Virtually all modern CPUs have so called "SIMD vector registers and instructions".
+Virtually all modern CPUs have so-called "SIMD vector registers and instructions".
 SIMD stands for "Single Instruction Multiple Data". We issue a single instruction which
 gets distributed over multiple pieces of data - the elements of the vector.
 For example, `x64 AVX2` machines have 256 bit vectors, and can thus hold
@@ -35,7 +35,7 @@ For example, `x64 AVX2` machines have 256 bit vectors, and can thus hold
 Vectorized load and store instructions can load and store whole vectors of data,
 and vectorized arithmetic instructions can be used to perform element-wise
 additions, multiplications, etc. This means we perform multiple operations per
-instructions - the number of operations depends on how many elements the vector
+instruction - the number of operations depends on how many elements the vector
 holds. Hence SIMD: a Single Instruction (e.g. addition) is distributed over
 Multiple Data - all the elements in the vector.
 
@@ -49,14 +49,14 @@ In the context of Java, the element types are primitive types like `byte`,
 
 There are various hardware implementations of SIMD vectors
 (e.g. x86: SSE, AVX, AVX2, AVX512. ARM: NEON, SVE).
-Different platforms and even micro architectures
+Different platforms and even microarchitectures
 can have different register sizes and instruction sets.
 In the context of Java, it is the task of the JVM to abstract
 over the complexity and differences of the individual CPUs
 and to provide a cross-platform compatible experience.
 
 Providing such a cross-platform compatible experience that still
-tries to squeeze the most performance out of every different micro architecture
+tries to squeeze the most performance out of every different microarchitecture
 is not an easy task. But it can pay off with big performance gains.
 
 Once we have optimized the code for individual threads, we can then still scale up
@@ -69,7 +69,7 @@ SIMD vectorization can significantly speed up computation.
 Of course it requires that the computation has some inherent parallelism,
 so it can be distributed over the SIMD vector elements.
 The speedup will be limited by the vector length (number of elements in the vector):
-if a vector can hold 8 `floats`, we can expect at most a 8x speedup.
+if a vector can hold 8 `floats`, we can expect at most an 8x speedup.
 But often we get a bit less than this theoretical maximum speedup,
 especially if our computation is not compute-bound but memory-bound:
 at some point the memory throughput will be the bottleneck.
@@ -98,15 +98,15 @@ for those domains.
 We can name three distinct vectorization models, that differ in how you write code and
 their guarantees for performance.
 
-- _Explicit_: The programmer directly uses _vector assembly instructions_, and hence gets the guarantee that the CPU runs SIMD operations. This is not a very nice programming experience, and does not scale well: you need to rewrite your code for every CPU micro architecture. To make the explicit model more pleasant, there are higher-level language APIs such as the [intel intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html) (though this one is limited to x86 CPUs). Java's mission is to run cross-platform, and so there has been a lot of work invested into the Java Vector API that models vectors in a clear and concise Java API, but which translates down reliably to vector assembly instructions - whenever available on the CPU.
+- _Explicit_: The programmer directly uses _vector assembly instructions_, and hence gets the guarantee that the CPU runs SIMD operations. This is not a very nice programming experience, and does not scale well: you need to rewrite your code for every CPU microarchitecture. To make the explicit model more pleasant, there are higher-level language APIs such as the [Intel Intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html) (though this one is limited to x86 CPUs). Java's mission is to run cross-platform, and so there has been a lot of work invested into the Java Vector API that models vectors in a clear and concise Java API, but which translates down reliably to vector assembly instructions - whenever available on the CPU.
   - Pros: The programmer has full control and freedom over the use of SIMD vectors. One does not need to rely on automatic vectorization or libraries, which all have their limitations.
   - Cons: Writing algorithms using SIMD vectors does require rethinking your algorithms, it is more effort than just writing regular scalar (single-element) code.
 - _Automatic_: Modern compilers often contain optimization phases that automatically vectorize code.
   - Pros: This happens automatically - no effort required by the programmer. On average, many programs are sped up.
   - Cons: Every compiler optimzation is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
-- _Intrinsics_: Some operations are very performance critical that they deserve special treatment. For example, there are some array, string and crypto operations that the JVM engineers decided to power them by hand-written assembly snippets (so-called intrinsics). A lot of time and effort has been invested to tune and perfect these assembly snippets - and this has to be done for each CPU micro architectures.
+- _Intrinsics_: Some operations are very performance critical that they deserve special treatment. For example, there are some array, string and crypto operations that the JVM engineers decided to power them by hand-written assembly snippets (so-called intrinsics). A lot of time and effort has been invested to tune and perfect these assembly snippets - and this has to be done for each CPU microarchitectures.
   - Pros: intrinsics allow us to speed up some performance critical core library methods of the JDK. Automatic vectorization either does not succeed in these cases or simply does not (yet) achieve perfect performance.
-  - Cons: this comes at an immense additional effort for JVM engineers, to write, test, benchmark and maintain all these assembly snippets for the large variety of critical core library methods and CPU micro architectures.
+  - Cons: this comes at an immense additional effort for JVM engineers, to write, test, benchmark and maintain all these assembly snippets for the large variety of critical core library methods and CPU microarchitectures.
  
 Some observations and recommendations:
 
@@ -116,7 +116,7 @@ Some observations and recommendations:
   - Then optimize your algorithms and data structures - this usually allows much greater speedups than SIMD vectorization.
   - If you still need more performance, inspect the generated assembly code using a profiler, and see if vectorization happens as expected.
   - If not, see if you can replace some loops with core library methods (e.g. `Arrays.fill`, `System.arraycopy`, ...) and see if this improves performance. Some of the core library methods are powered by intrinsics which should give you optimal performance - but always benchmark anyway to be sure!
-  - If performance is still not as you want, and are willing to invest more time, then the Vector API may be the solution for you. In the future, there might be vectorized algorithm libraries powered by the Vector API and written by the Java community - consider those as well.
+  - If performance is still not as you want, and you are willing to invest more time, then the Vector API may be the solution for you. In the future, there might be vectorized algorithm libraries powered by the Vector API and written by the Java community - consider those as well.
 - Automatic vectorization is limited, and can still be improved. But it will never cover all possible code shapes. If you have important use-cases where automatic vectorization does not yet succeed, then please report them with a benchmark, so we can investigate and consider improvements to cover those use-cases.
 - Updating to a newer JDK version means you profit from improved intrinsics, more code shapes being optimized by automatic vectorization, and better support for the Vector API.
 
@@ -160,15 +160,15 @@ Its goals:
 
 - _Cross-Platform_: in spirit with the general Java promise of "write once run anywhere".
 - _Reliable Performance_: the Vector API code should be compiled down to those juicy vector assembly instructions - whenever they are available on the CPU.
-- _Graceful Degregation_: if a specific CPU does not support some vector length or vector assembly instruction, the operations have to be simulated with scalar (single-element) operations. In that case, we cannot expect that an algorithm implemented with the Vector API is faster than an alternative scalar (single-element) implementation. But the goal is that the Vector API implementation is also not slower than the scalar implementation.
-- _Clear and Concise API_: we want to be able to express a wide variety of vector compuatations. The vector lengths are generic, so that they can be adapted to the specific requirements of different hardware.
+- _Graceful Degradation_: if a specific CPU does not support some vector length or vector assembly instruction, the operations have to be simulated with scalar (single-element) operations. In that case, we cannot expect that an algorithm implemented with the Vector API is faster than an alternative scalar (single-element) implementation. But the goal is that the Vector API implementation is also not slower than the scalar implementation.
+- _Clear and Concise API_: we want to be able to express a wide variety of vector computations. The vector lengths are generic, so that they can be adapted to the specific requirements of different hardware.
 
 We have made large progress over the last years. More and more CPU architectures are supported, more and more operations of the Vector API are compiled to vector instructions.
 A large extent of the work is done by hardware vendors these days: they ensure that the compiler knows about all the vector instructions available on the large variety of hardware.
 In most cases, the Vector API already now provides massive speedups.
 
-There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degregation has not yet been tackled.
-If an operation is not supported, we currently resort to a Java fall-back implementation that allocates arrays for each operations,
+There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degradation has not yet been tackled.
+If an operation is not supported, we currently resort to a Java fall-back implementation that allocates arrays for each operation,
 requiring data to be copied around unnecessarily and also there are some issues with inlining, requiring an unnecessary overhead of additional calls.
 For example, the `compress` operation is not (yet) supported by `aarch64 NEON`, and leads to very slow performance (see `filterI` results in [this benchmark](https://github.com/openjdk/jdk/pull/28639)).
 Solutions to these issues are currently being discussed and worked on.

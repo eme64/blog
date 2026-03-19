@@ -81,13 +81,13 @@ the CPU is fully busy executing those recursive folding instructions.
 We can reassociate the sum one more time, and use a vector accumulator (`acc`) instead of a scalar accumulator (`sum`).
 
 ```java
-var sums = FloatVector.broadcast(SPECIES_F, 0.0f);
+var acc = FloatVector.broadcast(SPECIES_F, 0.0f);
 for (int i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
     var va = FloatVector.fromArray(SPECIES_F, a, i);
     var vb = FloatVector.fromArray(SPECIES_F, b, i);
-    sums = sums.add(va.mul(vb));
+    acc = acc.add(va.mul(vb));
 }
-float sum = sums.reduceLanes(VectorOperators.ADD);
+float sum = acc.reduceLanes(VectorOperators.ADD);
 ```
 
 Every lane (element) of the vector accumulator `acc` holds a part of the total sum.
@@ -99,7 +99,62 @@ vectorized iteration.
 
 <img width="700" alt="vector accumulator" src="https://github.com/user-attachments/assets/a54c4441-5314-4753-b032-2fbb6f91b780" />
 
-TODO
+**Finishing Touches: Fused Multiply-Add Operation**
+
+There is another small trick we can apply now: we can fuse the multiplication and addition in a single FMA (fused multiply-add)
+operation. Most CPUs can compute those at the same cost as a multiplication, and so the cost of the addition drops away.
+
+```java
+var acc = FloatVector.broadcast(SPECIES_F, 0.0f);
+for (int i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
+    var va = FloatVector.fromArray(SPECIES_F, a, i);
+    var vb = FloatVector.fromArray(SPECIES_F, b, i);
+    acc = va.fma(vb, acc);
+}
+float sum = acc.reduceLanes(VectorOperators.ADD);
+```
+
+It is possible that one could achieve even more performance by using multiple vector accumulators,
+to further break down the latency along the `acc` chain. I leave this as an exercise to the reader ;)
+
+**Performance Benchmark Results**
+
+I implemented the four versions in a [JMH benchmark](https://github.com/openjdk/jdk/pull/30260).
+Here the performance results on an `x64 AVX512` and an `aarch64 NEON` machine:
+
+<img width="700" alt="perf results" src="https://github.com/user-attachments/assets/39600a5a-b8b9-47c0-9726-3959df939787" />
+
+We can see very clear speedups moving from scalar to vector performance.
+Using the vector accumulator provides a smaller but still noticable performance boost.
+Using the `fma` only helps marginally, but it is still measurable.
+
+**A Small Caveat: Rounding Errors**
+
+Reassociating `float` and `double` additions (or multiplications) leads to differences in rounding errors.
+While addition and multiplication is usually considered associative, their implementation with limited
+precision means they are not truly associative.
+It depends on the application if the difference in rounding errors is acceptable.
+For dot-products, it probably does not matter so much in most cases.
+The Vector API `reduceLanes` is allowed to pick different reassociations at every invocation.
+The JVM interpreter will probably compute the sum sequentially, while the compiled version
+will probably use the recursive folding order. This means you have to accept that the dot-product
+implementation might return slightly different rounding results at every invocation.
+
+Another implication: automatic vectorization is not allowed to reassociate operations that are not
+truly associative: the Java specification expects that `float` and `double` additions and multiplications
+produce the same result every time. Hence, automatic vectorization is not able to use the recursive
+folding trick nor can it use the vector accumulator trick in this case.
+But it can be used for integer types - but integer dot-products are not as common as floating point dot-products.
+
+**Conclusion**
+
+The Vector API allows us to write a very performant dot-product, and it allows us to circumvent the limitations
+of the automatic vectorizer - as long as our use-case allows the implication on rounding errors.
+
+Links:
+
+- [Vectorizing Reductions: from JDK9 to JDK26 and beyond](https://eme64.github.io/blog/2026/01/13/Reductions.html)
+- [Netflix: Optimizing Recommendation Systems with JDK’s Vector API](https://netflixtechblog.com/optimizing-recommendation-systems-with-jdks-vector-api-30d2830401ec)
 
 **Please leave a comment below**
 

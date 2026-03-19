@@ -189,9 +189,9 @@ If you are interested to learn more about the Vector API:
 Recently, [I wrote some performance benchmarks](https://github.com/openjdk/jdk/pull/27315) for some `fill` and `copy` examples.
 I will show some of the results here to illustrate the performance impact of automatic vectorization and intrinsics.
 
-Running some simple hand-writtne Java loops that copy or fill arrays, on `x64 AVX2`:
+Running some simple hand-writtne Java loops that copy or fill arrays, on `x64 AVX512`:
 
-<img width="700" alt="AVX2 byte copy and fill" src="https://github.com/user-attachments/assets/fb498da6-ea27-4f36-bda2-8f1d0978f7ad" />
+<img width="700" alt="AVX512 byte copy and fill" src="https://github.com/user-attachments/assets/fb498da6-ea27-4f36-bda2-8f1d0978f7ad" />
 
 And the same on `aarch64 NEON`:
 
@@ -207,14 +207,17 @@ intrinsics are sometimes tuned even better. The following plots show the perform
 between automatic vectorization of hand-written copy and fill loops, and the core library
 copy and fill methods backed by vectorized intrinsics (`System.arraycopy` and `Arrays.fill`).
 
-On an `x64 AVX2` machine:
+On an `x64 AVX512` machine:
 
-<img width="700" alt="AVX2 byte copy and fill intrinsics" src="https://github.com/user-attachments/assets/c7ded22d-8293-4c1b-86ec-6903721ba85d" />
+<img width="700" alt="AVX512 byte copy and fill intrinsics" src="https://github.com/user-attachments/assets/c7ded22d-8293-4c1b-86ec-6903721ba85d" />
 
 And on a `aarch64 NEON` machine:
 
 <img width="700" alt="NEON byte copy and fill intrinsics" src="https://github.com/user-attachments/assets/51acaf85-0e58-4bab-972e-502270305cf0" />
 
+I recently came across [a blog post by Otmar Ertl](https://www.dynatrace.com/news/blog/java-arrays-hashcode-byte-efficiency-techniques/),
+that shows the performance gain `Arrays.hashCode` gets from intrinsics compared to a default implementation.
+He uses the Vector API to write an even faster implementation on a platform that does not yet have an optimally tuned intrinsic (`x64 AVX512`).
 
 **Please leave a comment below**
 

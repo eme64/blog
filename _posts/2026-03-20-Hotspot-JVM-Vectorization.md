@@ -1,5 +1,5 @@
 ---
-title: "How the Hotspot JVM speeds up computation with SIMD Vectorization"
+title: "How the HotSpot JVM speeds up computation with SIMD Vectorization"
 date: 2026-03-20
 ---
 
@@ -99,7 +99,7 @@ their guarantees for performance.
 
 - _Explicit_: The programmer directly uses _vector assembly instructions_, and hence gets the guarantee that the CPU runs SIMD operations. This is not a very nice programming experience, and does not scale well: you need to rewrite your code for every CPU micro architecture. To make the explicit model more pleasant, there are higher-level language APIs such as the [intel intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html) (though this one is limited to x86 CPUs). Java's mission is to run cross-platform, and so there has been a lot of work invested into the Java Vector API that models vectors in a clear and concise Java API, but which translates down reliably to vector assembly instructions - whenever available on the CPU.
   - Pros: The programmer has full control and freedom over the use of SIMD vectors. One does not need to rely on automatic vectorization or libraries, which all have their limitations.
-  - Cons: Writing algorithms using SIMD vectors does require rethinking your algorithms, it is more effort than just writing regular scalar code.
+  - Cons: Writing algorithms using SIMD vectors does require rethinking your algorithms, it is more effort than just writing regular scalar (single-element) code.
 - _Automatic_: Modern compilers often contain optimization phases that automatically vectorize code.
   - Pros: This happens automatically - no effort required by the programmer. On average, many programs are sped up.
   - Cons: Every compiler optimzation is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
@@ -114,10 +114,73 @@ Some observations and recommendations:
   - You should benchmark your application and see where the bottleneck lies.
   - Then optimize your algorithms and data structures - this usually allows much greater speedups than SIMD vectorization.
   - If you still need more performance, inspect the generated assembly code using a profiler, and see if vectorization happens as expected.
-  - If not, see if you can replace some loops with core library methods (e.g. `Arrays.fill`, `System.arraycopy`, ...) and see if this improves performance.
-  - If performance is still not as you want, and are willing to invest more time, then the Vector API may be the solution for you.
+  - If not, see if you can replace some loops with core library methods (e.g. `Arrays.fill`, `System.arraycopy`, ...) and see if this improves performance. Some of the core library methods are powered by intrinsics which should give you optimal performance - but always benchmark anyway to be sure!
+  - If performance is still not as you want, and are willing to invest more time, then the Vector API may be the solution for you. In the future, there might be vectorized algorithm libraries powered by the Vector API and written by the Java community - consider those as well.
+- Automatic vectorization is limited, and can still be improved. But it will never cover all possible code shapes. If you have important use-cases where automatic vectorization does not yet suceed, then please report them with a benchmark, so we can investigate and consider improvements to cover those use-cases.
+- Updating to a newer JDK version means you profit from improved intrinsics, more code shapes being optimized by automatic vectorization, and better support for the Vector API.
 
-TODO continue here
+Let us now look at the three models in a bit more detail.
+
+**Core Library Methods powered by Vectorized Intrinsics**
+
+Some core library methods are very performance critical, so much that HotSpot replaces calls to those methods with highly optimized hand-written assembly snippets.
+So rather than interpreting the Java bytecode, or compiling it using the normal optimizations (like automatic vectorization), we just substitute the call to those
+selected core library methods with those pre-defined assembly snippets.
+Some examples:
+
+- `System.arraycopy` and `Arrays.copyOf`
+- `Arrays.equals`, `Arrays.mismatch` and `Arrays.compare`
+- `Arrays.fill`
+- `Arrays.hashCode`
+- `String.equals` and `String.compareTo`
+- `String.indexOf`
+- `com.sun.crypto.provider.AESCrypt`
+
+Use the core library methods like these when you can - don't hand-roll your own loops for these cases if you can avoid it.
+For one, you will have to write and test less code. And on top: you most likely get better performance.
+
+**Automatic Vectorization**
+
+Automatic vectorization has been done for a long time, and is still an active research topic.
+The goal is to detect parallelism in the code: for example when the iterations of a loop
+are independent or if a straight-line piece of code contains some isomorphic ("same kind of shape")
+instructions.
+There is a vast variety of compilers with different capabilities for automatic vectorization.
+The HotSpot JVM focuses on loops with primitive data types and independent loop iterations.
+
+If you are interested in more details, please [watch my JVMLS 2025 presentation on Automatic Vectorization in HotSpot](https://inside.java/2025/08/16/jvmls-hotspot-auto-vectorization/).
+
+**Expressing Vectorized Computation using the Vector API**
+
+With JDK26, the Vector API is now in its 11th incubator (see [JEP](https://openjdk.org/jeps/529)).
+The goal is to move it to preview sometime after Valhalla is in preview (we want to use the new `value class` features).
+
+Its goals:
+
+- _Cross-Platform_: in spirit with the general Java promise of "write once run anywhere".
+- _Reliable Performance_: the Vector API code should be compiled down to those juicy vector assembly instructions - whenever they are available on the CPU.
+- _Graceful Degregation_: if a specific CPU does not support some vector length or vector assembly instruction, the operations have to be simulated with scalar (single-element) operations. In that case, we cannot expect that an algorithm implemented with the Vector API is faster than an alternative scalar (single-element) implementation. But the goal is that the Vector API implementation is also not slower than the scalar implementation.
+- _Clear and Concise API_: we want to be able to express a wide variety of vector compuatations. The vector lengths are generic, so that they can be adapted to the specific requirements of different hardware.
+
+We have made large progress over the last years. More and more CPU architectures are supported, more and more operations of the Vector API are compiled to vector instructions.
+A large extend of the work is done by hardware vendors these days: they ensure that the compiler knows about all the vector instructions available on the large variety of hardware.
+In most cases, the Vector API already now provides massive speedups.
+
+There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degregation has not yet been tackled.
+If an operation is not supported, we currently resort to a Java fall-back implementation that allocates arrays for each operations,
+requiring data to be copied around unnecessarily and also there are some issues with inlining, requiring an unnecessary overhead of additional calls.
+Solutions to these issues are currently being discussed.
+
+For now, the recommendation is to write both a scalar and vector implementation. Then benchmark those implementations on every platform you want to run,
+and see which one is faster. This is good practice anyway: it allows you to test correctness, and to ensure performance is as you expect it to be.
+You can use some kind of per-platform configuration to determine which of the implementations should be run.
+
+If you are interested to learn more about the Vector API:
+
+- Read the [JEP](https://openjdk.org/jeps/529) and the [documentation](https://docs.oracle.com/en/java/javase/26/docs/api/jdk.incubator.vector/jdk/incubator/vector/Vector.html)!
+- [JEP Café #18: Learn how to write fast Java code with the Vector API](https://www.youtube.com/watch?v=42My8Yfzwbg)
+- [Vectorizing Reductions](https://eme64.github.io/blog/2026/01/13/Reductions.html) (has a section about Vector API)
+- [Performance impact of Alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)
 
 **Please leave a comment below**
 

@@ -103,7 +103,19 @@ their guarantees for performance.
 - _Automatic_: Modern compilers often contain optimization phases that automatically vectorize code.
   - Pros: This happens automatically - no effort required by the programmer. On average, many programs are sped up.
   - Cons: Every compiler optimzation is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
-- _Intrinsics_/_Library_: TODO
+- _Intrinsics_: Some operations are very performance critical that they deserve special treatment. For example, there are some array, string and crypto operations that the JVM engineers decided to power them by hand-written assembly snippets (so-called intrinsics). A lot of time and effort has been invested to tune and perfect these assembly snippets - and this has to be done for each CPU micro architectures.
+  - Pros: intrinsics allow us to speed up some performance critical core library methods of the JDK. Automatic vectorization either does not succeed in these cases or simply does not (yet) acheive perfect performance.
+  - Cons: this comes at an immense additional effort for JVM engineers, to write, test, benchmark and maintain all these assembly snippets for the large variety of critical core library methods and CPU micro architectures.
+ 
+Some observations and recommendations:
+
+- If performance is not your primary concern, then you do not have to change your source code - and your code may still be optimized by automatic vectorization and the core library methods you use will be powered by fast intrinsics.
+- If you do care about performance:
+  - You should benchmark your application and see where the bottleneck lies.
+  - Then optimize your algorithms and data structures - this usually allows much greater speedups than SIMD vectorization.
+  - If you still need more performance, inspect the generated assembly code using a profiler, and see if vectorization happens as expected.
+  - If not, see if you can replace some loops with core library methods (e.g. `Arrays.fill`, `System.arraycopy`, ...) and see if this improves performance.
+  - If performance is still not as you want, and are willing to invest more time, then the Vector API may be the solution for you.
 
 TODO continue here
 

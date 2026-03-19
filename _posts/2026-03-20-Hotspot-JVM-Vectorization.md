@@ -4,6 +4,7 @@ date: 2026-03-20
 ---
 
 Parallel processing is used in many places to speed up computation.
+
 We use multiple CPU cores, GPUs with massive parallel threading capabilities,
 and we even scale out to many machines and even to data centers distributed
 all over the world.
@@ -169,7 +170,8 @@ In most cases, the Vector API already now provides massive speedups.
 There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degregation has not yet been tackled.
 If an operation is not supported, we currently resort to a Java fall-back implementation that allocates arrays for each operations,
 requiring data to be copied around unnecessarily and also there are some issues with inlining, requiring an unnecessary overhead of additional calls.
-Solutions to these issues are currently being discussed.
+For example, the `compress` operation is not (yet) supported by `aarch64 NEON`, and leads to very slow performance (see `filterI` results in [this benchmark](https://github.com/openjdk/jdk/pull/28639)).
+Solutions to these issues are currently being discussed and worked on.
 
 For now, the recommendation is to write both a scalar and vector implementation. Then benchmark those implementations on every platform you want to run,
 and see which one is faster. This is good practice anyway: it allows you to test correctness, and to ensure performance is as you expect it to be.

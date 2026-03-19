@@ -43,16 +43,16 @@ Let us illustrate the operations required in the following graph:
 We see that the multiplications (and the loads before that) can be executed independently, they do not depend on any prior computation.
 The CPU can schedule multiplications in parallel.
 But the additions depend on the result of the previous additions.
-The CPU can only schedule the an addition if its inputs are available.
-The the CPU needs to wait a few cycles for the addition to complete,
-and then the result is ready as the input to the next addition.
+The CPU can only schedule the addition if its inputs are ready,
+then needs to wait a few cycles for the addition to complete.
+At that point the result is ready as the input to the next addition.
 This creates a rigid reduction chain, where the latency of the addition
 operations dominates the performance.
 
 **Solving the Latency Problem: Recursive Folding**
 
 Let us assume that the addition operation is [associative](https://en.wikipedia.org/wiki/Associative_property),
-i.e. we are able to rearrange the parenthesis: `(a + b) + c` = `a + (b + c)`.
+i.e. we are able to rearrange the parentheses: `(a + b) + c` = `a + (b + c)`.
 This allows us to reassociate the additions and break down the latency chain.
 This is exactly what the Vector API [reduceLanes](https://en.wikipedia.org/wiki/Associative_property) operation does when compiled by HotSpot.
 It uses the recursive folding trick: it recursively splits the vector into two halves, and adds those up lane-wise,
@@ -66,14 +66,14 @@ for (i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
 }
 ```
 
-Assuming that our vector can hold 4 elements, the critical chain of additions now is only a 4th as long,
+Assuming a 4-lane vector, the critical addition chain drops to roughly one quarter its original length,
 cutting the latency down by a (theoretical) factor of 4.
 
 <img width="650" alt="recursive folding" src="https://github.com/user-attachments/assets/741d2af4-ca2e-4fc1-940c-336c0bc03e95" />
 
 But this solution introduces a new problem: the recursive folding requires multiple assembly instructions
 (recursively splitting and lane-wise adding).
-Before, the latency chain was the bottleneck, now the large number of instructions becomes a throughput bottleneck,
+Previously, the latency chain was the bottleneck. Now the large number of instructions becomes a throughput bottleneck,
 the CPU is fully busy executing those recursive folding instructions.
 
 **Solving the Throughput Problem: Vector Accumulator**
@@ -125,20 +125,21 @@ Here the performance results on an `x64 AVX512` and an `aarch64 NEON` machine:
 <img width="700" alt="perf results" src="https://github.com/user-attachments/assets/39600a5a-b8b9-47c0-9726-3959df939787" />
 
 We can see very clear speedups moving from scalar to vector performance.
-Using the vector accumulator provides a smaller but still noticable performance boost.
+Using the vector accumulator provides a smaller but still noticeable performance boost.
 Using the `fma` only helps marginally, but it is still measurable.
 
 **A Small Caveat: Rounding Errors**
 
 Reassociating `float` and `double` additions (or multiplications) leads to differences in rounding errors.
-While addition and multiplication is usually considered associative, their implementation with limited
+While addition and multiplication are usually considered associative, their implementation with limited
 precision means they are not truly associative.
 It depends on the application if the difference in rounding errors is acceptable.
 For dot-products, it probably does not matter so much in most cases.
 The Vector API `reduceLanes` is allowed to pick different reassociations at every invocation.
 The JVM interpreter will probably compute the sum sequentially, while the compiled version
-will probably use the recursive folding order. This means you have to accept that the dot-product
-implementation might return slightly different rounding results at every invocation.
+will probably use the recursive folding order.
+Because the interpreter and JIT may choose different reassociation orders,
+expect slight run-to-run differences in floating-point results and guard accordingly.
 
 Another implication: automatic vectorization is not allowed to reassociate operations that are not
 truly associative: the Java specification expects that `float` and `double` additions and multiplications

@@ -12,7 +12,7 @@ all over the world.
 But hardware (and the power required to run them) is
 expensive, and so we would like to squeeze
 out every last drop of the juicy performance our machines can deliver to us.
-You might be surprised how much computation power a single CPU has, and in
+You might be surprised how much computational power a single CPU has, and in
 some cases you might even be able to avoid scaling out if you optimize your
 code enough so that it can run on a single machine or even a single CPU.
 
@@ -98,12 +98,14 @@ for those domains.
 We can name three distinct vectorization models, that differ in how you write code and
 their guarantees for performance.
 
+<img width="700" alt="three models visualization" src="https://github.com/user-attachments/assets/00a9d94e-7b70-45ba-8fd2-36fd05e78b35" />
+
 - _Explicit_: The programmer directly uses _vector assembly instructions_, and hence gets the guarantee that the CPU runs SIMD operations. This is not a very nice programming experience, and does not scale well: you need to rewrite your code for every CPU microarchitecture. To make the explicit model more pleasant, there are higher-level language APIs such as the [Intel Intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html) (though this one is limited to x86 CPUs). Java's mission is to run cross-platform, and so there has been a lot of work invested into the Java Vector API that models vectors in a clear and concise Java API, but which translates down reliably to vector assembly instructions - whenever available on the CPU.
   - Pros: The programmer has full control and freedom over the use of SIMD vectors. One does not need to rely on automatic vectorization or libraries, which all have their limitations.
   - Cons: Writing algorithms using SIMD vectors does require rethinking your algorithms, it is more effort than just writing regular scalar (single-element) code.
 - _Automatic_: Modern compilers often contain optimization phases that automatically vectorize code.
   - Pros: This happens automatically - no effort required by the programmer. On average, many programs are sped up.
-  - Cons: Every compiler optimzation is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
+  - Cons: Every compiler optimization is limited - their pattern matching capabilities will never cover all possible code shapes. This means that small source code changes to the Java program might make the difference between the code shape being recognized and vectorized leading to faster code or not being recognized leading to slower code. We call this the "brittleness problem": it can be hard for the user to predict or understand if automatic vectorization succeeds for a specific code shape.
 - _Intrinsics_: Some operations are very performance critical that they deserve special treatment. For example, there are some array, string and crypto operations that the JVM engineers decided to power them by hand-written assembly snippets (so-called intrinsics). A lot of time and effort has been invested to tune and perfect these assembly snippets - and this has to be done for each CPU microarchitectures.
   - Pros: intrinsics allow us to speed up some performance critical core library methods of the JDK. Automatic vectorization either does not succeed in these cases or simply does not (yet) achieve perfect performance.
   - Cons: this comes at an immense additional effort for JVM engineers, to write, test, benchmark and maintain all these assembly snippets for the large variety of critical core library methods and CPU microarchitectures.
@@ -168,7 +170,7 @@ A large extent of the work is done by hardware vendors these days: they ensure t
 In most cases, the Vector API already now provides massive speedups.
 
 There is still some work to do: the implementation needs to be aligned with Valhalla. And the goal of Graceful Degradation has not yet been tackled.
-If an operation is not supported, we currently resort to a Java fall-back implementation that allocates arrays for each operation,
+If an operation is not supported, we currently resort to a Java fallback implementation that allocates arrays for each operation,
 requiring data to be copied around unnecessarily and also there are some issues with inlining, requiring an unnecessary overhead of additional calls.
 For example, the `compress` operation is not (yet) supported by `aarch64 NEON`, and leads to very slow performance (see `filterI` results in [this benchmark](https://github.com/openjdk/jdk/pull/28639)).
 Solutions to these issues are currently being discussed and worked on.

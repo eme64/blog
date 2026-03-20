@@ -194,6 +194,11 @@ Running the benchmark on an array with `10000` elements on my `x64 AVX512` lapto
 On AVX512, we seem to get a clear speedup from auto vectorization.
 But on NEON, the auto vectorizer seems to fail and we get only scalar performance.
 The VectorAPI implementation seems to generate slightly worse code the best alternative.
+I inspected the assembly code that is generated on AVX512 - and there is just a small
+difference in the quality for the Vector API and auto vectorized code - with some extra
+time one could probably change the Vector API implementation slightly to get the same performance.
+NEON does not seem to support the vectorized index generation assembly instruction,
+which is at least a part of the explanation why there is no good vectorized performance.
 
 **Conclusion**
 

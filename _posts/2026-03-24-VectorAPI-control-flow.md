@@ -78,6 +78,11 @@ for (i = 0; i < SPECIES_B.loopBound(a.length); i += SPECIES_B.length()) {
 // omitting scalar cleanup
 ```
 
+Here a diagram that visualises the scalar branching computation
+as well as the vector computation with masks:
+
+<img width="700" alt="visualisation" src="https://github.com/user-attachments/assets/2eb10654-f8db-40f3-9882-a10c8ef9b42a" />
+
 Running on an `x64 AVX512` and an `aarch64 NEON` machine:
 
 <img width="700" alt="lowerCase all" src="https://github.com/user-attachments/assets/5af7e58c-b50b-4672-953e-5362183d56d5" />
@@ -91,12 +96,34 @@ On AVX512 the speedup is 16x - 28x. On NEON the speedup is 12x - 26x.
 Consider that on AVX512 a vector holds 64 byte elements, and on NEON a vector holds 16 byte elements.
 
 While the x-axis shows the time, the y-axis shows the branch probability.
-We generate the input randomly, but accordingly to the branch probability.
-If the branch probability is high, we mostly have upper case characters (if-branch).
-If the branch probability is low, we mostly have lower case characters (else-branch).
-If the branch probability is in the middle, we have a random mix of upper and lower case characters.
+We generate the input randomly, but accordingly to the branch probability:
 
-TODO
+- If the branch probability is high, we mostly have upper case characters (if-branch).
+- If the branch probability is low, we mostly have lower case characters (else-branch).
+- If the branch probability is in the middle (`0.5`), we have a random mix of upper and lower case characters.
+
+Let's first focus on the performance characteristic of the scalar implementation.
+We see that the performance depends on the branch probability:
+
+- Low (lower case): fastest. The branch predictor works very well, and we don't have to do any additions.
+- High (upper case): fast. The branch predictor works very well, but we have do to additions which has some extra cost.
+- Middle (mixed): slow. The branch predictor fails 50% of the time, we suffer the branch prediction penalty.
+
+The branch predictor is amazing: it allows the CPU to speculate if a branch is taken, based on the history.
+The CPU speculatively assumes one side of the branch is taken, and already executes down that road.
+Only later, the check is actually performed. If it goes as speculated: great, we win!
+Not having to wait for the check to be completed means we save some CPU cycles, it cuts the latency link between
+the check and the computations of the branch.
+If the speculation was wrong, the CPU needs to throw away all the results after the wrong branch (pipeline flush),
+and resume computation at the right branch.
+This means we just wasted some CPU cycles on the wrong branch, this can be costly.
+
+Now let's look at the Vector API performance:
+Both implementations are roughly equally fast. On NEON `v2` is slightly faster than `v1`.
+The branch probability has no impact on the performance
+because all vectorized instructions are always executed.
+The control-flow is simulated by masked operations, but there is no performance
+impact if the mask entries are `true` or `false`.
 
 **Algorithm 2: pieceWise**
 
@@ -113,6 +140,12 @@ TODO
 **Algorithm 5: filter**
 
 TODO
+
+**Conclusion**
+
+TODO
+
+- Branch probability matters: distribution of the input values have an impact on performance.
 
 **Please leave a comment below**
 

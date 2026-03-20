@@ -48,6 +48,8 @@ for (; i < r.length; i++) {
     r[i] = 42;
 }
 ```
+We broadcast the number `42` to all elements of the vector, and are now able to fill multiple elements
+of the array with a single vector store (`intoArray`).
 We have to use two loops: the length of the array `r` may not be evenly divisible by the
 length of the vector `v`. We use `loopBound` to determine up to where we can use
 vectors, and handle the remaining iterations in the scalar cleanup loop.
@@ -84,6 +86,16 @@ On AVX512, the intrinisic seems to perform a bit better than the auto vectorizer
 
 **Algorithm 2: Copy**
 
+We copy data from array `a` to array `r`.
+
+We assume that the two arrays are different arrays.
+Read [this blog post about aliasing](https://eme64.github.io/blog/2026/01/14/Aliasing.html),
+that discusses what we have to do
+if the arrays might be the same, and the memory that we copy from
+and to might overlap. There have been some JDK26 improvements
+in the auto vectorizer to enable the optimization of such possibly
+aliasing cases.
+
 Reference implementation (should be auto vectorized):
 ```java
 for (int i = 0; i < r.length; i++) {
@@ -107,6 +119,10 @@ for (; i < r.length; i++) {
     r[i] = a[i];
 }
 ```
+
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+
+TODO
 
 **Algorithm 3: Map**
 

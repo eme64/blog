@@ -13,13 +13,14 @@ For each of the examples, we will follow these steps:
 
 - Reference Implementation: the simplest implementation, just a simple loop. That gives us a ground truth to test other implementations, as well as a performance baseline. We should also check if this simple implementation already is auto vectorized - it may already give us really good performance.
 - Core library method: see if we can find one with a vectorized intrinsic.
-- Vector API: only now do we invest the additional time it takes to rewrite the algorithm using the Vector API. In these very simple cases, we will probably not get any speedup, because the reference implenetation is already auto vectorized, or the vectorized intrinsic is at least as performant.
+- Vector API: only now do we invest the additional time it takes to rewrite the algorithm using the Vector API. In these very simple cases, we will probably not get any speedup, because the reference implementation is already auto vectorized, or the vectorized intrinsic is at least as performant.
 
 Note: all of the benchmarks are [integrated in the OpenJDK github repository](https://github.com/openjdk/jdk/pull/28639).
 Below, I will slightly simplify some of the code so it is easier to read.
 
-It is also important to note: I present the some performance numbers for two different machines.
+It is also important to note: I present some performance numbers for two different machines.
 We can see that the results differ significantly, and may be different again on your machine.
+I ran all of these benchmarks on JDK26.
 
 **Algorithm 1: Fill**
 
@@ -60,12 +61,12 @@ For now, you will get best performance with two loops, but
 [in the future we might find ways to optimize](https://bugs.openjdk.org/browse/JDK-8378315)
 `VectorMask.indexInRange` for such loops.
 
-Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and an `aarch64 NEON` OCI machine:
 
 <img width="700" alt="fill performance results 10000 elements" src="https://github.com/user-attachments/assets/0ae3f043-560e-4d2d-b93e-cc9f3545f98f" />
 
 Comment: the compiler detects that the reference implementation loop is an array fill operation, and automatically replaces it with a call to the intrinsic!
-This is a bit of a special case - usually the JVM only uses intriniscs for core library methods, and not hand-written Java loops.
+This is a bit of a special case - usually the JVM only uses intrinsic for core library methods, and not hand-written Java loops.
 We can disable the intrinsic for the loop and also the `Arrays.fill` with the VM flag `-XX:-OptimizeFill`.
 With the intrinsic disabled, now the auto vectorizer kicks in.
 We can disable the auto vectorizer with the VM flag `-XX:-UseSuperWord`.
@@ -75,14 +76,14 @@ Observations:
 
 - Vectorization is always better compared to scalar performance, but the exact speedup varies.
 - For `fill` and this input size, it does not seem to make a difference if we use the intrinsic or auto vectorize.
-- The Vector API implementaiton is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html). Recommendation for benchmarking: make sure you run the benchmark multiple times, with new allocations of the arrays, so you get the average performance.
+- The Vector API implementation is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html). Recommendation for benchmarking: make sure you run the benchmark multiple times, with new allocations of the arrays, so you get the average performance.
 
 Running the same experiment with a smaller array with only `300` elements:
 
 <img width="700" alt="fill performance results 300" src="https://github.com/user-attachments/assets/cb6b45b2-4c60-4e86-b444-610ceac4bccd" />
 
 The general trends are the same, but with a smaller number of loop iterations the speedup is a little less strong.
-On AVX512, the intrinisic seems to perform a bit better than the auto vectorizer.
+On AVX512, the intrinsic seems to perform a bit better than the auto vectorizer.
 
 **Algorithm 2: Copy**
 
@@ -120,7 +121,7 @@ for (; i < r.length; i++) {
 }
 ```
 
-Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and an `aarch64 NEON` OCI machine:
 
 <img width="700" alt="copy performance 10000" src="https://github.com/user-attachments/assets/74db8491-7e4a-4749-a8d6-986acf5dd7e8" />
 
@@ -128,7 +129,7 @@ Running the same experiment with a smaller array with only `300` elements:
 
 <img width="700" alt="copy performance 300" src="https://github.com/user-attachments/assets/c17f6323-59d9-486f-8545-d60ed7cd682b" />
 
-The gains from vectorization are significant. The difference between the vectorized alternatives only marginal - at least for
+The gains from vectorization are significant. The difference between the vectorized alternatives is only marginal - at least for
 the sizes of arrays we chose here.
 
 **Algorithm 3: Map**
@@ -158,7 +159,7 @@ for (; i < r.length; i++) {
 }
 ```
 
-Running the benchmark on an array with `300` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+Running the benchmark on an array with `300` elements on my `x64 AVX512` laptop, and an `aarch64 NEON` OCI machine:
 
 <img width="550" alt="map performance 300" src="https://github.com/user-attachments/assets/0cb8b03e-c264-4e9e-b14a-73cc3f8036a2" />
 
@@ -187,13 +188,13 @@ for (; i < r.length; i++) {
 }
 ```
 
-Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and an `aarch64 NEON` OCI machine:
 
 <img width="550" alt="iota performance 10000" src="https://github.com/user-attachments/assets/a2a37be9-ceb9-4d7f-8fe6-c8c16323a10e" />
 
 On AVX512, we seem to get a clear speedup from auto vectorization.
 But on NEON, the auto vectorizer seems to fail and we get only scalar performance.
-The VectorAPI implementation seems to generate slightly worse code the best alternative.
+The VectorAPI implementation seems to generate slightly worse code than the best alternative.
 I inspected the assembly code that is generated on AVX512 - and there is just a small
 difference in the quality for the Vector API and auto vectorized code - with some extra
 time one could probably change the Vector API implementation slightly to get the same performance.

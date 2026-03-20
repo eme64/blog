@@ -1,5 +1,5 @@
 ---
-title: "Vectorizing Simple Algorithms using Auto Vectorization, Intrinsics and the Vector API"
+title: "Vectorizing Simple Algorithms with Auto Vectorization, Vectorized Intrinsics and the Vector API"
 date: 2026-03-21
 ---
 
@@ -20,11 +20,44 @@ Below, I will slightly simplify some of the code so it is easier to read.
 
 **Algorithm 1: Fill**
 
+We fill every element in the int array `r` with the value `42`.
+
+Reference implementation (should be auto vectorized):
+```java
+for (int i = 0; i < r.length; i++) {
+    r[i] = 42;
+}
+```
+
+Core library method (backed by vectorized intrinsic):
+```java
+Arrays.fill(r, 42);
+```
+
+Vector API implementation:
+```java
+var v = IntVector.broadcast(SPECIES_I, 42);
+int i = 0;
+for (; i < SPECIES_I.loopBound(r.length); i += SPECIES_I.length()) {
+    v.intoArray(r, i);
+}
+for (; i < r.length; i++) {
+    r[i] = 42;
+}
+```
+We have to use two loops: the length of the array `r` may not be evenly divisible by the
+length of the vector `v`. We use `loopBound` to determine up to where we can use
+vectors, and handle the remaining iterations in the scalar cleanup loop.
+
 TODO
 
 **Algorithm 2: Copy**
 
 TODO
+
+```java
+x
+```
 
 **Algorithm 3: Map**
 

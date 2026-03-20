@@ -126,7 +126,7 @@ Running the benchmark on an array with `10000` elements on my `x64 AVX512` lapto
 
 Running the same experiment with a smaller array with only `300` elements:
 
-<img width="700" height="538" alt="copy performance 300" src="https://github.com/user-attachments/assets/c17f6323-59d9-486f-8545-d60ed7cd682b" />
+<img width="700" alt="copy performance 300" src="https://github.com/user-attachments/assets/c17f6323-59d9-486f-8545-d60ed7cd682b" />
 
 The gains from vectorization are significant. The difference between the vectorized alternatives only marginal - at least for
 the sizes of arrays we chose here.
@@ -158,9 +158,10 @@ for (; i < r.length; i++) {
 }
 ```
 
-Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+Running the benchmark on an array with `300` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
 
-TODO
+<img width="550" alt="map performance 300" src="https://github.com/user-attachments/assets/0cb8b03e-c264-4e9e-b14a-73cc3f8036a2" />
+
 
 **Algorithm 4: Iota ()**
 

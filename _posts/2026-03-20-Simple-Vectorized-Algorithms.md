@@ -18,6 +18,9 @@ For each of the examples, we will follow these steps:
 Note: all of the benchmarks are [integrated in the OpenJDK github repository](https://github.com/openjdk/jdk/pull/28639).
 Below, I will slightly simplify some of the code so it is easier to read.
 
+It is also important to note: I present the some performance numbers for two different machines.
+We can see that the results differ significantly, and may be different again on your machine.
+
 **Algorithm 1: Fill**
 
 We fill every element in the int array `r` with the value `42`.
@@ -52,6 +55,12 @@ vectors, and handle the remaining iterations in the scalar cleanup loop.
 Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
 
 <img width="700" alt="fill performance results 10000 elements" src="https://github.com/user-attachments/assets/0ae3f043-560e-4d2d-b93e-cc9f3545f98f" />
+
+Comment: the compiler detects that the reference implementation loop is an array fill operation, and automatically replaces it with a call to the intrinsic!
+We can disable the intrinsic for the loop and also the `Arrays.fill` with the VM flag `-XX:-OptimizeFill`.
+With the intrinsic disabled, now the auto vectorizer kicks in.
+We can disable the auto vectorizer with the VM flag `-XX:-UseSuperWord`.
+Now we get the pure scalar performance.
 
 Observations:
 

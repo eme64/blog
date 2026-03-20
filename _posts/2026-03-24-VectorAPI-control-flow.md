@@ -127,9 +127,106 @@ impact if the mask entries are `true` or `false`.
 On AVX512 we have some individual down-spikes.
 I suspect this might be due to [(mis)alignment causing multimodal performance](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html).
 
+What we learn from this example:
+Generally, vectorization leads to speedups because of parallelization - but with a theoretical maximum of the vector length.
+On NEON where we have 16 byte elements in a vector this would mean we could only gain at most a factor of 16.
+But using masked vector operations, we can sometimes gain more performance:
+especially if we can avoid the branch misprediction penalty that the scalar implementation suffers from
+for some branch probabilities.
+
 **Algorithm 2: pieceWise**
 
-TODO
+This example is a bit more contrived, but it shows a very interesting effect.
+We want to apply a function `f(x)` to every input in the array `a`,
+and store the results in the array `r`.
+But the function `f` is piece-wise: for small input values we compute some multiplications, for high input values we compute some square roots.
+Here a plot of the function:
+
+<img width="600" alt="piece-wise function f" src="https://github.com/user-attachments/assets/fb587786-9dba-4333-b8b4-119a1994db5c" />
+
+It is important to say:
+computing square roots is very expensive compared to multiplications.
+
+Reference implementation:
+```java
+for (int i = 0; i < a.length; i++) {
+    float ai = a[i];
+    if (ai < 1f) {
+         float a2 = ai * ai;
+         float a4 = a2 * a2;
+         float a8 = a4 * a4;
+         r[i] = a8;
+     } else {
+        float s2 = (float)Math.sqrt(ai);
+        float s4 = (float)Math.sqrt(s2);
+        float s8 = (float)Math.sqrt(s4);
+        r[i] = s8;
+    }
+}
+```
+
+Vector API implementation (v1), unconditionally compute both branches for all lanes:
+```java
+for (i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
+    var ai = FloatVector.fromArray(SPECIES_F, a, i);
+    var mask = ai.compare(VectorOperators.LT, 1f);
+    var a2 = ai.lanewise(VectorOperators.MUL, ai);
+    var a4 = a2.lanewise(VectorOperators.MUL, a2);
+    var a8 = a4.lanewise(VectorOperators.MUL, a4);
+    var s2 = ai.lanewise(VectorOperators.SQRT);
+    var s4 = s2.lanewise(VectorOperators.SQRT);
+    var s8 = s4.lanewise(VectorOperators.SQRT);
+    var v = s8.blend(a8, mask);
+    v.intoArray(r, i);
+}
+// omitting scalar cleanup
+```
+
+Vector API implementation (v2), unconditionally compute the multiplications for all lanes, but only compute the square roots if at least one lane needs it:
+```java
+for (i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
+    var ai = FloatVector.fromArray(SPECIES_F, a, i);
+    var mask = ai.compare(VectorOperators.LT, 1f);
+    var a2 = ai.lanewise(VectorOperators.MUL, ai);
+    var a4 = a2.lanewise(VectorOperators.MUL, a2);
+    var a8 = a4.lanewise(VectorOperators.MUL, a4);
+    var v = a8;
+    // SQRT is expensive, so only call if it necessary
+    if (!mask.allTrue()) {
+        var s2 = ai.lanewise(VectorOperators.SQRT);
+        var s4 = s2.lanewise(VectorOperators.SQRT);
+        var s8 = s4.lanewise(VectorOperators.SQRT);
+        v = s8.blend(a8, mask);
+    }
+    v.intoArray(r, i);
+}
+// omitting scalar cleanup
+```
+
+Running on an `x64 AVX512` and an `aarch64 NEON` machine:
+
+<img width="700" alt="piece-wise performance" src="https://github.com/user-attachments/assets/df288e08-e266-4ccc-9751-09aa7d38a34d" />
+
+The scalar implementation has branches, so it is sensitive to the branch probability:
+
+- Low (mostly `sqrt`): slow, becaue `sqrt` is slow.
+- High (mostly `mul`): fast, because `mul` is fast.
+- Middle (mixed): there is the classic branch misprediction penalty bump for NEON, though for AVX512 is is very faint.
+
+The non-branching Vector API implementation (`v1`) is not sensitive to the branching probability.
+It is faster than the scalar implementation for some but not all branching probabilities.
+
+The branching Vector API implementation (`v2`) is the fastest implementation in almost all cases,
+because it combines the benefits of vectorization with the benefits of branching to
+avoid square root computation when possible.
+But on NEON the scalar implementation seems to be slightly faster for branch probabilities around `0.125`.
+
+What we can learn from this example:
+We should not apply vectorization blindly.
+Using masked vector operations sometimes means we have to execute both branches.
+If one branch is much more expensive than the other, this can mean that
+scalar branch prediction outperforms vectorized implementations,
+at least for some branch probabilities.
 
 **Algorithm 3: find**
 

@@ -124,6 +124,8 @@ The branch probability has no impact on the performance
 because all vectorized instructions are always executed.
 The control-flow is simulated by masked operations, but there is no performance
 impact if the mask entries are `true` or `false`.
+On AVX512 we have some individual down-spikes.
+I suspect this might be due to [(mis)alignment causing multimodal performance](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html).
 
 **Algorithm 2: pieceWise**
 

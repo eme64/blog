@@ -163,7 +163,9 @@ Running the benchmark on an array with `300` elements on my `x64 AVX512` laptop,
 <img width="550" alt="map performance 300" src="https://github.com/user-attachments/assets/0cb8b03e-c264-4e9e-b14a-73cc3f8036a2" />
 
 
-**Algorithm 4: Iota ()**
+**Algorithm 4: Iota (Fill with Index Values)**
+
+The `iota` method fills an array with index values `0, 1, 2, ...`.
 
 Reference implementation (should be auto vectorized):
 ```java
@@ -187,11 +189,17 @@ for (; i < r.length; i++) {
 
 Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
 
-TODO
+<img width="550" alt="iota performance 10000" src="https://github.com/user-attachments/assets/a2a37be9-ceb9-4d7f-8fe6-c8c16323a10e" />
+
+On AVX512, we seem to get a clear speedup from auto vectorization.
+But on NEON, the auto vectorizer seems to fail and we get only scalar performance.
+The VectorAPI implementation seems to generate slightly worse code the best alternative.
 
 **Conclusion**
 
-TODO
+Vectorization brings clear speedups.
+The exact speedups depend on the implementation, the hardware (e.g. vector lengths),
+and some other factors (such as [alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)).
 
 **Please leave a comment below**
 

@@ -206,6 +206,15 @@ Vectorization brings clear speedups.
 The exact speedups depend on the implementation, the hardware (e.g. vector lengths),
 and some other factors (such as [alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)).
 
+These examples were deliberately simple, which means auto vectoirzation is more likely to succeed,
+and writing an implementation with the Vector API is quite simple.
+Here some other examples that are a bit more complex:
+
+- [Fast dot-product with the Vector API](https://eme64.github.io/blog/2026/03/19/VectorAPI-dot-product.html)
+- [Reductions (auto vectorization improvements and Vector API example)](https://eme64.github.io/blog/2026/01/13/Reductions.html)
+- [Copy with unknown Aliasing (overlap possible)](https://eme64.github.io/blog/2026/01/14/Aliasing.html)
+- [Performance impact of Alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)
+
 **Please leave a comment below**
 
 To edit/delete a comment: click on the `date` above your comment, e.g. `just now` or `5 minutes ago`.

@@ -25,7 +25,7 @@ We can see that the results differ significantly, and may be different again on 
 
 We fill every element in the int array `r` with the value `42`.
 
-Reference implementation (should be auto vectorized):
+Reference implementation (special case: detected as fill loop, and replaced with call to vectorized fill intrinsic):
 ```java
 for (int i = 0; i < r.length; i++) {
     r[i] = 42;
@@ -63,6 +63,7 @@ Running the benchmark on an array with `10000` elements on my `x64 AVX512` lapto
 <img width="700" alt="fill performance results 10000 elements" src="https://github.com/user-attachments/assets/0ae3f043-560e-4d2d-b93e-cc9f3545f98f" />
 
 Comment: the compiler detects that the reference implementation loop is an array fill operation, and automatically replaces it with a call to the intrinsic!
+This is a bit of a special case - usually the JVM only uses intriniscs for core library methods, and not hand-written Java loops.
 We can disable the intrinsic for the loop and also the `Arrays.fill` with the VM flag `-XX:-OptimizeFill`.
 With the intrinsic disabled, now the auto vectorizer kicks in.
 We can disable the auto vectorizer with the VM flag `-XX:-UseSuperWord`.
@@ -83,27 +84,62 @@ On AVX512, the intrinisic seems to perform a bit better than the auto vectorizer
 
 **Algorithm 2: Copy**
 
-TODO
-
+Reference implementation (should be auto vectorized):
 ```java
-x
+for (int i = 0; i < r.length; i++) {
+    r[i] = a[i];
+}
+```
+
+Core library method (backed by vectorized intrinsic):
+```java
+System.arraycopy(a, 0, r, 0, a.length);
+```
+
+Vector API implementation:
+```java
+int i = 0;
+for (; i < SPECIES_I.loopBound(r.length); i += SPECIES_I.length()) {
+    IntVector v = IntVector.fromArray(SPECIES_I, a, i);
+    v.intoArray(r, i);
+}
+for (; i < r.length; i++) {
+    r[i] = a[i];
+}
 ```
 
 **Algorithm 3: Map**
 
-TODO
+Reference implementation (should be auto vectorized):
+```java
+for (int i = 0; i < r.length; i++) {
+    r[i] = a[i] * 42;
+}
+```
+
+Vector API implementation:
+```java
+int i = 0;
+for (; i < SPECIES_I.loopBound(r.length); i += SPECIES_I.length()) {
+    IntVector v = IntVector.fromArray(SPECIES_I, a, i);
+    v = v.mul(42);
+    v.intoArray(r, i);
+}
+for (; i < r.length; i++) {
+    r[i] = a[i] * 42;
+}
+```
 
 **Algorithm 4: Iota ()**
 
-TODO
-
+Reference implementation (should be auto vectorized):
 ```java
 for (int i = 0; i < r.length; i++) {
     r[i] = i;
 }
 ```
 
-
+Vector API implementation:
 ```java
 var iota = IntVector.broadcast(SPECIES_I, 0).addIndex(1);
 int i = 0;

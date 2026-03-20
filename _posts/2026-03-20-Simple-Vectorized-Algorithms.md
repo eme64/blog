@@ -51,6 +51,12 @@ for (; i < r.length; i++) {
 We have to use two loops: the length of the array `r` may not be evenly divisible by the
 length of the vector `v`. We use `loopBound` to determine up to where we can use
 vectors, and handle the remaining iterations in the scalar cleanup loop.
+Writing two loops is cumbersome. You could use [VectorMask.indexInRange](https://docs.oracle.com/en/java/javase/26/docs/api/jdk.incubator.vector/jdk/incubator/vector/VectorMask.html#indexInRange(int,int)),
+to generate a mask that is always on except for when you are about to step over the loop bound.
+But always running with masked operations is expensive.
+For now, you will get best performance with two loops, but
+[in the future we might find ways to optimize](https://bugs.openjdk.org/browse/JDK-8378315)
+`VectorMask.indexInRange` for such loops.
 
 Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
 
@@ -87,9 +93,28 @@ x
 
 TODO
 
-**Algorithm 4: Iota**
+**Algorithm 4: Iota ()**
 
 TODO
+
+```java
+for (int i = 0; i < r.length; i++) {
+    r[i] = i;
+}
+```
+
+
+```java
+var iota = IntVector.broadcast(SPECIES_I, 0).addIndex(1);
+int i = 0;
+for (; i < SPECIES_I.loopBound(r.length); i += SPECIES_I.length()) {
+    iota.intoArray(r, i);
+    iota = iota.add(SPECIES_I.length());
+}
+for (; i < r.length; i++) {
+    r[i] = i;
+}
+```
 
 **Conclusion**
 

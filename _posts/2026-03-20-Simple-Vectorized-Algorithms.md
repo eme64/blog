@@ -1,6 +1,6 @@
 ---
 title: "Vectorizing Simple Algorithms with Auto Vectorization, Vectorized Intrinsics and the Vector API"
-date: 2026-03-21
+date: 2026-03-20
 ---
 
 In this blog post, we will look at some very simple algorithms like `fill`, `copy`, `map` and `iota`,
@@ -49,7 +49,15 @@ We have to use two loops: the length of the array `r` may not be evenly divisibl
 length of the vector `v`. We use `loopBound` to determine up to where we can use
 vectors, and handle the remaining iterations in the scalar cleanup loop.
 
-TODO
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+
+<img width="700" alt="fill performance results" src="https://github.com/user-attachments/assets/0ae3f043-560e-4d2d-b93e-cc9f3545f98f" />
+
+Observations:
+
+- Vectorization is always better compared to scalar performance, but the exact speedup varies.
+- For `fill` and this input size, it does not seem to make a difference if we use the intrinsic or auto vectorize.
+- The Vector API implementaiton is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html).
 
 **Algorithm 2: Copy**
 

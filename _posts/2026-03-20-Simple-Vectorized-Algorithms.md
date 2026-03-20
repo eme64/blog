@@ -75,7 +75,7 @@ Observations:
 
 - Vectorization is always better compared to scalar performance, but the exact speedup varies.
 - For `fill` and this input size, it does not seem to make a difference if we use the intrinsic or auto vectorize.
-- The Vector API implementaiton is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html). Note: once Compact Object Headers are enabled, the first element of the array is never cacheline aligned, and we always get the slower performance for our Vector API implementation.
+- The Vector API implementaiton is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html). Recommendation for benchmarking: make sure you run the benchmark multiple times, with new allocations of the arrays, so you get the average performance.
 
 Running the same experiment with a smaller array with only `300` elements:
 
@@ -122,9 +122,21 @@ for (; i < r.length; i++) {
 
 Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
 
-TODO
+<img width="700" alt="copy performance 10000" src="https://github.com/user-attachments/assets/74db8491-7e4a-4749-a8d6-986acf5dd7e8" />
+
+Running the same experiment with a smaller array with only `300` elements:
+
+<img width="700" height="538" alt="copy performance 300" src="https://github.com/user-attachments/assets/c17f6323-59d9-486f-8545-d60ed7cd682b" />
+
+The gains from vectorization are significant. The difference between the vectorized alternatives only marginal - at least for
+the sizes of arrays we chose here.
 
 **Algorithm 3: Map**
+
+This is a generalization of `copy`: we perform some element-wise operation to every element
+of the input array `a`, and store the results in an output array `r`.
+Here, we multiply by `42`, but there is a large range of operators and expressions that
+can be vectorized. If you find a shape that is not auto vectorized, please report it to us!
 
 Reference implementation (should be auto vectorized):
 ```java
@@ -145,6 +157,10 @@ for (; i < r.length; i++) {
     r[i] = a[i] * 42;
 }
 ```
+
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+
+TODO
 
 **Algorithm 4: Iota ()**
 
@@ -167,6 +183,10 @@ for (; i < r.length; i++) {
     r[i] = i;
 }
 ```
+
+Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
+
+TODO
 
 **Conclusion**
 

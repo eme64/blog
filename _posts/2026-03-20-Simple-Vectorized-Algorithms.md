@@ -51,13 +51,20 @@ vectors, and handle the remaining iterations in the scalar cleanup loop.
 
 Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and a `aarch64 NEON` OCI machine:
 
-<img width="700" alt="fill performance results" src="https://github.com/user-attachments/assets/0ae3f043-560e-4d2d-b93e-cc9f3545f98f" />
+<img width="700" alt="fill performance results 10000 elements" src="https://github.com/user-attachments/assets/0ae3f043-560e-4d2d-b93e-cc9f3545f98f" />
 
 Observations:
 
 - Vectorization is always better compared to scalar performance, but the exact speedup varies.
 - For `fill` and this input size, it does not seem to make a difference if we use the intrinsic or auto vectorize.
-- The Vector API implementaiton is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html).
+- The Vector API implementaiton is sensitive to alignment on AVX512: we get a bimodal performance distribution - if the first element of the array is cacheline aligned we get the best performance, but if it is not aligned we get significantly worse performance. Array alignment is essentially random, and so sometimes you get good performance and sometimes not. Auto vectorization and vectorized intrinsics are not sensitive to alignment, because they have an automatic alignment feature. [Read more about alignment here](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html). Note: once Compact Object Headers are enabled, the first element of the array is never cacheline aligned, and we always get the slower performance for our Vector API implementation.
+
+Running the same experiment with a smaller array with only `300` elements:
+
+<img width="700" alt="fill performance results 300" src="https://github.com/user-attachments/assets/cb6b45b2-4c60-4e86-b444-610ceac4bccd" />
+
+The general trends are the same, but with a smaller number of loop iterations the speedup is a little less strong.
+On AVX512, the intrinisic seems to perform a bit better than the auto vectorizer.
 
 **Algorithm 2: Copy**
 

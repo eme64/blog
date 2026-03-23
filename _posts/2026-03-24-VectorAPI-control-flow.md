@@ -288,7 +288,13 @@ x
 
 **Algorithm 5: filter**
 
-TODO
+The previous algorithms were either element-wise, where all lanes were independent,
+or they had an early exit but no side-effects.
+The `filter` example takes an input array `a` and keeps all elements that are at or above
+the `threshold`, rejecting all other elements.
+The elements that are kept are stored contiguously into an output array `r`.
+The current position in the output array is tracked with the secondary
+index variable `j`.
 
 Reference implementation:
 ```java
@@ -300,6 +306,19 @@ for (int i = 0; i < a.length; i++) {
     }
 }
 ```
+
+In the example below, we have a `threshold = 0`, so we are keeping all positive values (including zero).
+Note, that the values are copied "down", we always have `j <= i`.
+The secondary index variable `j` is only sometimes incremented, while the primary index variable `i` is always incremented.
+
+<img width="400" alt="filter visualized" src="https://github.com/user-attachments/assets/9f7d2b68-0771-42fe-85e5-88cd70a47492" />
+
+The variable `j` poses a challenge for parallelization, because it counts how many of the previous
+iterations had a true-condition.
+This is a so-called control-dependent loop-carried dependency: it depends on the result of
+the control-flow of previous iterations.
+Luckily, some CPUs have hardware instructions that perform such "filtering"
+on a per-vector level, and they are available in the Vector API as `compress` operations.
 
 Vector API implementation (`v1`), using `compress`:
 ```java
@@ -317,8 +336,22 @@ for (; i < SPECIES_I.loopBound(a.length); i += SPECIES_I.length()) {
 // omitting scalar cleanup
 ```
 
-On some platforms, `compress` is not (yet) handled well by the Vector API,
+In the example below, we load a vector of 4 elements, and create a mask that marks which elements we want to keep.
+We compress both the elements we want to keep, as well as the mask.
+Now the elements we keep and the mask are "compressed" to the beginning of the vector,
+and they are all adjacent.
+Now that we have managent to make our elements adjacent, we can use
+a masked store operation to only store those elements to the output.
+Finally, we count how many elements we stored, so we can update our secondary index variable `j` accordingly.
+Note: while we always consume a full vector of inputs (here 4 elements),
+we may store an arbitrary number of elements (here 0-4).
+
+<img width="350" alt="filter visualized compress" src="https://github.com/user-attachments/assets/dfd35627-4c9e-47d9-b010-49c1e595703a" />
+
+Sadly, not all CPUs have those "filtering" assembly instructions,
+and so `compress` is not (yet) handled well by the Vector API,
 and we resort to a very slow fallback implementation.
+Also, some CPUs don't even have masked store instructions.
 Therefore, we also investigate an alternative approach below that does not require
 any `compress` and also no masked store operation.
 

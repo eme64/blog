@@ -289,11 +289,52 @@ CPU and the length of the arrays.
 
 **Algorithm 4: mismatch**
 
-TODO
+We want to find the first index at which two byte arrays `a` and `b` differ, or `-1` if they have no difference.
+This is inspired by
+[Arrays::mismatch](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/Arrays.html#mismatch(byte%5B%5D,byte%5B%5D)),
+and related method like `Arrays::equals` and `Arrays::compare` that can be implemented using `Arrays::mismatch`.
+All of these are backed by vectorized intrinsics.
+This benchmark is a newer addition to the [OpenJDK repository](https://github.com/openjdk/jdk/pull/30372).
 
+Reference implementation:
 ```java
-x
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] != b[i]) {
+                return i;
+            }
+        }
+        return -1;
 ```
+
+[Arrays::mismatch](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/Arrays.html#mismatch(byte%5B%5D,byte%5B%5D)) implementation:
+```java
+return Arrays.mismatch(a, b);
+```
+
+[MemorySegment::mismatch](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/lang/foreign/MemorySegment.html#mismatch(java.lang.foreign.MemorySegment)) implementation:
+```java
+var aMS = MemorySegment.ofArray(a);
+var bMS = MemorySegment.ofArray(b);
+return (int) aMS.mismatch(bMS);
+```
+
+Vector API implementation:
+```java
+int i = 0;
+for (; i < SPECIES_B.loopBound(a.length); i += SPECIES_B.length()) {
+    ByteVector va = ByteVector.fromArray(SPECIES_B, a, i);
+    ByteVector vb = ByteVector.fromArray(SPECIES_B, b, i);
+    var mask = va.compare(VectorOperators.NE, vb);
+    if (mask.anyTrue()) {
+        return i + mask.firstTrue();
+    }
+}
+// omitting scalar cleanup
+return -1;
+```
+
+The Vector API implementation is very similar to the one for `findI`: instead of comparing to the search
+element `e`, we compare to the value in the other array.
 
 Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `10000` elements:
 
@@ -302,6 +343,13 @@ Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `100
 And using arrays with `300` elements:
 
 <img width="500" alt="mismatch performance 300" src="https://github.com/user-attachments/assets/59f6068a-cf67-432e-987f-5cdfac4b85f0" />
+
+Observations:
+
+- The reference implementation is not vectorized, but all others are.
+- The `Arrays::mismatch` and `MemorySegment::mismatch` implementation seem to be equally performant.
+- On `AVX512`, the Vector API implementation uses 512 bit (`zmm`) registers, but the `Arrays::mismatch` and `MemorySegment::mismatch` implementations only seem to use 256 bit (`ymm`) registers. Accordingly, the Vector API implementations is about 2x as fast.
+- On my `NEON` machine the Vector API implementation seems to be slightly slower than the `Arrays` and `MemorySegment` implementation - I have not yet investigated why.
 
 **Algorithm 5: filter**
 

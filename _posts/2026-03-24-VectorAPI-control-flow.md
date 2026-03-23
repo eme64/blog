@@ -290,9 +290,65 @@ x
 
 TODO
 
+Reference implementation:
 ```java
-x
+int j = 0;
+for (int i = 0; i < a.length; i++) {
+    int ai = a[i];
+    if (ai >= threshold) {
+        r[j++] = ai;
+    }
+}
 ```
+
+Vector API implementation (`v1`), using `compress`:
+```java
+int j = 0;
+int i = 0;
+for (; i < SPECIES_I.loopBound(a.length); i += SPECIES_I.length()) {
+    IntVector v = IntVector.fromArray(SPECIES_I, a, i);
+    var mask = v.compare(VectorOperators.GE, threshold);
+    v = v.compress(mask);
+    int trueCount = mask.trueCount();
+    var prefixMask = mask.compress();
+    v.intoArray(r, j, prefixMask);
+    j += trueCount;
+}
+// omitting scalar cleanup
+```
+
+On some platforms, `compress` is not (yet) handled well by the Vector API,
+and we resort to a very slow fallback implementation.
+Therefore, we also investigate an alternative approach below that does not require
+any `compress` and also no masked store operation.
+
+Vector API implementation (`v2_l2`), using a 2-element vector and only vectorizing the all-true case:
+```java
+int j = 0;
+int i = 0;
+for (; i < SPECIES_I64.loopBound(a.length); i += SPECIES_I64.length()) {
+    IntVector v = IntVector.fromArray(SPECIES_I64, a, i);
+    var mask = v.compare(VectorOperators.GE, threshold);
+    if (mask.allTrue()) {
+        v.intoArray(r, j);
+        j += 2;
+    } else if (mask.anyTrue()) {
+        if (mask.laneIsSet(0)) { r[j++] = v.lane(0); }
+        if (mask.laneIsSet(1)) { r[j++] = v.lane(1); }
+    } else {
+        // nothing
+    }
+}
+```
+
+Note: we can generalize the `v2` implementation to more elements (4-element: `v2_l4`, 8-element: `v2_l8`).
+In each case, we have an all-true branch that can do a store without mask,
+and an all-false branch that does nothing.
+We call those two branches the _uniform_ branches, because the mask is either uniform-true or uniform-false.
+The mixed branch we call _divergent_: we have a scalar implementation where every
+lane is simulated with individual control flow. Some will take the respective true-branch,
+others the respective false-branch (i.e. do nothing).
+
 
 **Conclusion**
 

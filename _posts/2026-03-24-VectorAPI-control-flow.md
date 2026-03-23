@@ -400,9 +400,18 @@ because we requested a vector length of 256 bits but only 128 bit
 vectors are available.
 [We are currently considering solutions to these issues](https://bugs.openjdk.org/browse/JDK-8378373).
 
+For all of the slow cases, we can see that performance is sensitive to the branch probability
+(i.e. how many elements we keep). This is because the fallback implementation in the Vector API
+simulates all the vector operations with scalar operations, and uses control-flow to do so
+(e.g. for `compress` and masked store operation).
+
 Below, we focus on only the fast cases:
 
 <img width="700" alt="filter performance fast" src="https://github.com/user-attachments/assets/2334f3b8-dff6-40d9-b289-9b5b4c022a3d" />
+
+All implementations are sensitive to the branch probability - except for the Vector API implementation (`v1`)
+that uses `compress`: all operations are executed unconditionally, so performance is constant across all
+branch probabilities.
 
 TODO
 

@@ -249,14 +249,34 @@ for (int i = 0; i < a.length; i++) {
 return -1;
 ```
 
+Below we have an example with the string "voxxeddays", and we are looking for the first occurance of the character "d".
+As long as we have no match we do nothing and keep going. As soon as we find the character "d" we return the current index `i`.
+
+<img width="400" alt="find visualized" src="https://github.com/user-attachments/assets/25c1e0c2-bbe5-4f71-be61-e4c5a4b04fe8" />
+
 Vector API implementation:
 ```java
-x
+int i = 0;
+for (; i < SPECIES_I.loopBound(a.length); i += SPECIES_I.length()) {
+    IntVector v = IntVector.fromArray(SPECIES_I, a, i);
+    var mask = v.compare(VectorOperators.EQ, e);
+    if (mask.anyTrue()) {
+        return i + mask.firstTrue();
+    }
+}
+// omitting scalar cleanup
+return -1;
 ```
 
-```java
-x
-```
+In our Vector API implementation, we now load a vector of input values,
+possibly going beyond the first occurance of "d".
+We get a mask that marks _all_ occurances of "d" (`compare`),
+then check if we marked _any_ (`anyTrue`).
+If we marked none, do nothing. If we marked some, find the first occurance (`firstTrue`).
+
+<img width="400" height="find visualized Vector API" alt="image" src="https://github.com/user-attachments/assets/fa8b41a0-91a9-4d99-af54-ee73172afcaa" />
+
+TODO perf
 
 **Algorithm 4: mismatch**
 

@@ -230,15 +230,49 @@ at least for some branch probabilities.
 
 **Algorithm 3: find**
 
-TODO
+We want to find the first occurance of some element `e` in an array `a`.
+This is inspired by methods like
+[String::indexOf](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/lang/String.html#indexOf(int))
+and
+[List::indexOf](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/List.html#indexOf(java.lang.Object)).
+
+The previous two algorithms were both element-wise (i.e. lane-wise).
+But here we have an algorithm with an early exit condition.
+
+Reference implementation:
+```java
+for (int i = 0; i < a.length; i++) {
+    if (a[i] == e) {
+        return i;
+    }
+}
+return -1;
+```
+
+Vector API implementation:
+```java
+x
+```
+
+```java
+x
+```
 
 **Algorithm 4: mismatch**
 
 TODO
 
+```java
+x
+```
+
 **Algorithm 5: filter**
 
 TODO
+
+```java
+x
+```
 
 **Conclusion**
 

@@ -328,10 +328,9 @@ for (; i < SPECIES_I.loopBound(a.length); i += SPECIES_I.length()) {
     IntVector v = IntVector.fromArray(SPECIES_I, a, i);
     var mask = v.compare(VectorOperators.GE, threshold);
     v = v.compress(mask);
-    int trueCount = mask.trueCount();
     var prefixMask = mask.compress();
     v.intoArray(r, j, prefixMask);
-    j += trueCount;
+    j += mask.trueCount();
 }
 // omitting scalar cleanup
 ```
@@ -381,6 +380,16 @@ We call those two branches the _uniform_ branches, because the mask is either un
 The mixed branch we call _divergent_: we have a scalar implementation where every
 lane is simulated with individual control flow. Some will take the respective true-branch,
 others the respective false-branch (i.e. do nothing).
+
+Running on an `x64 AVX512` and an `aarch64 NEON` machine:
+
+<img width="700" alt="filter performance all" src="https://github.com/user-attachments/assets/d891238f-8a79-4296-be86-e4b6056b35c7" />
+
+The results above show that some Vector API impelementations are significantly slower
+than all other implementations. Below, we focus on only the fast cases:
+
+<img width="700" alt="filter performance fast" src="https://github.com/user-attachments/assets/2334f3b8-dff6-40d9-b289-9b5b4c022a3d" />
+
 
 
 **Conclusion**

@@ -207,6 +207,7 @@ If you are interested to learn more about the Vector API:
 **Examples and Performance Benchmark Results**
 
 _Update_: you can find some [more examples in this blog post](https://eme64.github.io/blog/2026/03/20/Simple-Vectorized-Algorithms.html).
+And a `Arrays::mismatch` benchmark can be found [here](https://eme64.github.io/blog/2026/03/23/VectorAPI-control-flow.html).
 
 Recently, [I wrote some performance benchmarks](https://github.com/openjdk/jdk/pull/27315) for some `fill` and `copy` examples.
 I will show some of the results here to illustrate the performance impact of automatic vectorization and intrinsics.

@@ -386,21 +386,21 @@ Running on an `x64 AVX512` and an `aarch64 NEON` machine:
 <img width="700" alt="filter performance all" src="https://github.com/user-attachments/assets/d891238f-8a79-4296-be86-e4b6056b35c7" />
 
 The results above show that some Vector API impelementations are significantly slower
-than all other implementations.
+than all other implementations. Observations on the slow cases:
 
-On x86 machines, we unfortunately do not yet allow 2-element masks,
+- On x86 machines, we unfortunately do not yet allow 2-element masks,
 and so the `v2_l2` implementation resorts to a slow scalar Java
 fallback in the Vector API.
 [We hope to allow 2-element masks in the future](https://bugs.openjdk.org/browse/JDK-8378589).
 
-On `aarch64 NEON`, the `compress` operation is not directly supported in hardware,
+- On `aarch64 NEON`, the `compress` operation is not directly supported in hardware,
 and we resort to a slow Java fallback implementation in the Vector API.
 Also the `v2_l8` implementation resorts to the slow fallback,
 because we requested a vector length of 256 bits but only 128 bit
 vectors are available.
 [We are currently considering solutions to these issues](https://bugs.openjdk.org/browse/JDK-8378373).
 
-For all of the slow cases, we can see that performance is sensitive to the branch probability
+- For all of the slow cases, we can see that performance is sensitive to the branch probability
 (i.e. how many elements we keep). This is because the fallback implementation in the Vector API
 simulates all the vector operations with scalar operations, and uses control-flow to do so
 (e.g. for `compress` and masked store operation).

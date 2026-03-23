@@ -83,7 +83,7 @@ as well as the vector computation with masks:
 
 <img width="700" alt="visualisation" src="https://github.com/user-attachments/assets/2eb10654-f8db-40f3-9882-a10c8ef9b42a" />
 
-Running on an `x64 AVX512` and an `aarch64 NEON` machine:
+Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `10000` elements:
 
 <img width="700" alt="lowerCase all" src="https://github.com/user-attachments/assets/5af7e58c-b50b-4672-953e-5362183d56d5" />
 
@@ -203,7 +203,7 @@ for (i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
 // omitting scalar cleanup
 ```
 
-Running on an `x64 AVX512` and an `aarch64 NEON` machine:
+Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `10000` elements:
 
 <img width="700" alt="piece-wise performance" src="https://github.com/user-attachments/assets/df288e08-e266-4ccc-9751-09aa7d38a34d" />
 
@@ -276,7 +276,16 @@ If we marked none, do nothing. If we marked some, find the first occurance (`fir
 
 <img width="400" height="find visualized Vector API" alt="image" src="https://github.com/user-attachments/assets/fa8b41a0-91a9-4d99-af54-ee73172afcaa" />
 
-TODO perf
+Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `10000` elements:
+
+<img width="400" alt="find benchmark 10000" src="https://github.com/user-attachments/assets/df09fdc9-b17f-47b3-a12e-099ba93c8bcb" />
+
+And using arrays with `300` elements:
+
+<img width="400" alt="find benchmark 300" src="https://github.com/user-attachments/assets/e30561a1-c858-4fc2-b0c1-72b255db8a48" />
+
+We see that vectorization is clearly profitable, though the exact factor depends on the
+CPU and the length of the arrays.
 
 **Algorithm 4: mismatch**
 

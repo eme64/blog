@@ -295,6 +295,14 @@ TODO
 x
 ```
 
+Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `10000` elements:
+
+<img width="500" alt="mismatch performance 10000" src="https://github.com/user-attachments/assets/420383ed-90ce-4823-9055-43bfe2f19377" />
+
+And using arrays with `300` elements:
+
+<img width="500" alt="mismatch performance 300" src="https://github.com/user-attachments/assets/59f6068a-cf67-432e-987f-5cdfac4b85f0" />
+
 **Algorithm 5: filter**
 
 The previous algorithms were either element-wise, where all lanes were independent,

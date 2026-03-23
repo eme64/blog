@@ -203,6 +203,8 @@ If you are interested to learn more about the Vector API:
 - [JEP Café #18: Learn how to write fast Java code with the Vector API](https://www.youtube.com/watch?v=42My8Yfzwbg)
 - [Vectorizing Reductions](https://eme64.github.io/blog/2026/01/13/Reductions.html) (has a section about Vector API)
 - [Performance impact of Alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)
+- [Vectorizing Simple Algorithms with Auto Vectorization, Vectorized Intrinsics and the Vector API](https://eme64.github.io/blog/2026/03/20/Simple-Vectorized-Algorithms.html)
+- [Vectorizing Loops with Control-Flow using the Vector API](https://eme64.github.io/blog/2026/03/23/VectorAPI-control-flow.html)
 
 **Examples and Performance Benchmark Results**
 

@@ -215,6 +215,7 @@ Here some other examples that are a bit more complex:
 - [Reductions (auto vectorization improvements and Vector API example)](https://eme64.github.io/blog/2026/01/13/Reductions.html)
 - [Copy with unknown Aliasing (overlap possible)](https://eme64.github.io/blog/2026/01/14/Aliasing.html)
 - [Performance impact of Alignment](https://eme64.github.io/blog/2026/01/12/Alignment-Performance.html)
+- [Vectorizing Loops with Control-Flow using the Vector API](https://eme64.github.io/blog/2026/03/23/VectorAPI-control-flow.html)
 
 **Please leave a comment below**
 

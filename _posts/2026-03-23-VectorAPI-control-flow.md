@@ -109,7 +109,7 @@ Let's first focus on the performance characteristic of the scalar implementation
 We see that the performance depends on the branch probability:
 
 - Low (lower case): fastest. The branch predictor works very well, and we don't have to do any additions.
-- High (upper case): fast. The branch predictor works very well, but we have do to additions which has some extra cost.
+- High (upper case): fast. The branch predictor works very well, but we have to do additions which has some extra cost.
 - Middle (mixed): slow. The branch predictor fails 50% of the time, we suffer the branch prediction penalty.
 
 The branch predictor is amazing: it allows the CPU to speculate if a branch is taken, based on the history.
@@ -143,7 +143,7 @@ This example is a bit more contrived, but it shows a very interesting effect.
 We want to apply a function `f(x)` to every input in the array `a`,
 and store the results in the array `r`.
 But the function `f` is piece-wise: for small input values we compute some multiplications, for high input values we compute some square roots.
-Here a plot of the function:
+Here is a plot of the function:
 
 <img width="600" alt="piece-wise function f" src="https://github.com/user-attachments/assets/fb587786-9dba-4333-b8b4-119a1994db5c" />
 
@@ -194,7 +194,7 @@ for (i = 0; i < SPECIES_F.loopBound(a.length); i += SPECIES_F.length()) {
     var a4 = a2.lanewise(VectorOperators.MUL, a2);
     var a8 = a4.lanewise(VectorOperators.MUL, a4);
     var v = a8;
-    // SQRT is expensive, so only call if it necessary
+    // SQRT is expensive, so only call if it is necessary
     if (!mask.allTrue()) {
         var s2 = ai.lanewise(VectorOperators.SQRT);
         var s4 = s2.lanewise(VectorOperators.SQRT);
@@ -212,7 +212,7 @@ Running on an `x64 AVX512` and an `aarch64 NEON` machine, using arrays with `100
 
 The scalar implementation has branches, so it is sensitive to the branch probability:
 
-- Low (mostly `sqrt`): slow, becaue `sqrt` is slow.
+- Low (mostly `sqrt`): slow, because `sqrt` is slow.
 - High (mostly `mul`): fast, because `mul` is fast.
 - Middle (mixed): there is the classic branch misprediction penalty bump for NEON, though for AVX512 is is very faint.
 
@@ -233,7 +233,7 @@ at least for some branch probabilities.
 
 **Algorithm 3: find**
 
-We want to find the first occurance of some element `e` in an array `a`.
+We want to find the first occurence of some element `e` in an array `a`.
 This is inspired by methods like
 [String::indexOf](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/lang/String.html#indexOf(int))
 and
@@ -252,7 +252,7 @@ for (int i = 0; i < a.length; i++) {
 return -1;
 ```
 
-Below we have an example with the string "voxxeddays", and we are looking for the first occurance of the character "d".
+Below we have an example with the string "voxxeddays", and we are looking for the first occurence of the character "d".
 As long as we have no match we do nothing and keep going. As soon as we find the character "d" we return the current index `i`.
 
 <img width="400" alt="find visualized" src="https://github.com/user-attachments/assets/25c1e0c2-bbe5-4f71-be61-e4c5a4b04fe8" />
@@ -272,10 +272,10 @@ return -1;
 ```
 
 In our Vector API implementation, we now load a vector of input values,
-possibly going beyond the first occurance of "d".
-We get a mask that marks _all_ occurances of "d" (`compare`),
+possibly going beyond the first occurence of "d".
+We get a mask that marks _all_ occurences of "d" (`compare`),
 then check if we marked _any_ (`anyTrue`).
-If we marked none, do nothing. If we marked some, find the first occurance (`firstTrue`).
+If we marked none, do nothing. If we marked some, find the first occurence (`firstTrue`).
 
 <img width="400" height="find visualized Vector API" alt="image" src="https://github.com/user-attachments/assets/fa8b41a0-91a9-4d99-af54-ee73172afcaa" />
 
@@ -351,7 +351,7 @@ Observations:
 
 - The reference implementation is not vectorized, but all others are.
 - The `Arrays::mismatch` and `MemorySegment::mismatch` implementation seem to be equally performant.
-- On `AVX512`, the Vector API implementation uses 512 bit (`zmm`) registers, but the `Arrays::mismatch` and `MemorySegment::mismatch` implementations only seem to use 256 bit (`ymm`) registers. Accordingly, the Vector API implementations is about 2x as fast. I suspect that the vectorized intrinsics have not yet been adjusted for AVX512.
+- On `AVX512`, the Vector API implementation uses 512 bit (`zmm`) registers, but the `Arrays::mismatch` and `MemorySegment::mismatch` implementations only seem to use 256 bit (`ymm`) registers. Accordingly, the Vector API implementation is about 2x as fast. I suspect that the vectorized intrinsics have not yet been adjusted for AVX512.
 - On my `NEON` machine the Vector API implementation seems to be slightly slower than the `Arrays` and `MemorySegment` implementation - I have not yet investigated why.
 
 **Algorithm 5: filter**
@@ -376,7 +376,7 @@ for (int i = 0; i < a.length; i++) {
 ```
 
 In the example below, we have a `threshold = 0`, so we are keeping all positive values (including zero).
-Note, that the values are copied "down", we always have `j <= i`.
+Note that the values are copied "down", we always have `j <= i`.
 The secondary index variable `j` is only sometimes incremented, while the primary index variable `i` is always incremented.
 
 <img width="400" alt="filter visualized" src="https://github.com/user-attachments/assets/9f7d2b68-0771-42fe-85e5-88cd70a47492" />
@@ -407,7 +407,7 @@ In the example below, we load a vector of 4 elements, and create a mask that mar
 We compress both the elements we want to keep, as well as the mask.
 Now the elements we keep and the mask are "compressed" to the beginning of the vector,
 and they are all adjacent.
-Now that we have managent to make our elements adjacent, we can use
+Now that we have managed to make our elements adjacent, we can use
 a masked store operation to only store those elements to the output.
 Finally, we count how many elements we stored, so we can update our secondary index variable `j` accordingly.
 Note: while we always consume a full vector of inputs (here 4 elements),
@@ -453,7 +453,7 @@ Running on an `x64 AVX512` and an `aarch64 NEON` machine:
 
 <img width="700" alt="filter performance all" src="https://github.com/user-attachments/assets/d891238f-8a79-4296-be86-e4b6056b35c7" />
 
-The results above show that some Vector API impelementations are significantly slower
+The results above show that some Vector API implementations are significantly slower
 than all other implementations. Observations on the slow cases:
 
 - On x86 machines, we unfortunately do not yet allow 2-element masks,
@@ -490,7 +490,7 @@ except for `v2_l8` with very extreme branch probabilities.
 - The `v2` implementations share the same general performance characteristics,
 which are also similar to the scalar performance characteristic.
 This is because `v2` has branches, and thus is sensitive to branch prediction
-behavior. The longer the vector length, the better the perormance in the extreme
+behavior. The longer the vector length, the better the performance in the extreme
 (high and low) branch probability region, because more elements can be taken
 or rejected at a time. The 8-element vector `v2_l8` implementation thus can
 even outperform the `compress` implementation, because `compress` and masked
@@ -511,8 +511,8 @@ loop-carried dependency (`filter`).
 We have seen that different vectorized implementations have different performance characteristics,
 and in some cases the reference implementation remains the fastest implementation we considered
 for a specific case and branch probability.
-We have also seen that sometimes the Vector API fails its goal of "graceful degregation":
-we resort to a Java fallbaack that is horribly slow.
+We have also seen that sometimes the Vector API fails its goal of "graceful degradation":
+we resort to a Java fallback that is horribly slow.
 [There are plans to address that in the future](https://bugs.openjdk.org/browse/JDK-8378373).
 But for now, the recommendation is to implement a reference implementation and a vectorized
 implementation, to benchmark them on each relevant platform, and then run the fastest

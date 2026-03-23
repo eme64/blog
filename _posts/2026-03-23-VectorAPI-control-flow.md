@@ -1,6 +1,6 @@
 ---
 title: "Vectorizing Loops with Control-Flow using the Vector API"
-date: 2026-03-24
+date: 2026-03-23
 ---
 
 Many algorithms require control-flow.
@@ -25,6 +25,9 @@ The benchmarks for all the algorithms can be found in the [OpenJDK repository](h
 For each algorithm, we first consider the scalar reference implementation,
 and then look at one or more optimized implementations that use the Vector API.
 All of the benchmarks use arrays with `10000` elements.
+
+Note that all the performance numbers are generated with JDK26, and a later JDK version may
+produce different (hopefully better!) results.
 
 **Algorithm 1: lowerCase**
 
@@ -348,7 +351,7 @@ Observations:
 
 - The reference implementation is not vectorized, but all others are.
 - The `Arrays::mismatch` and `MemorySegment::mismatch` implementation seem to be equally performant.
-- On `AVX512`, the Vector API implementation uses 512 bit (`zmm`) registers, but the `Arrays::mismatch` and `MemorySegment::mismatch` implementations only seem to use 256 bit (`ymm`) registers. Accordingly, the Vector API implementations is about 2x as fast.
+- On `AVX512`, the Vector API implementation uses 512 bit (`zmm`) registers, but the `Arrays::mismatch` and `MemorySegment::mismatch` implementations only seem to use 256 bit (`ymm`) registers. Accordingly, the Vector API implementations is about 2x as fast. I suspect that the vectorized intrinsics have not yet been adjusted for AVX512.
 - On my `NEON` machine the Vector API implementation seems to be slightly slower than the `Arrays` and `MemorySegment` implementation - I have not yet investigated why.
 
 **Algorithm 5: filter**
@@ -498,9 +501,25 @@ not yet investigated why, but suspect it might be that the vectorized
 
 **Conclusion**
 
-TODO
+We showed that the Vector API is capable to vectorize some basic yet very powerful algorithms
+with control-flow in the loop.
+Understanding of the branch prediction is very important in some of these cases:
+the performance depends on the inputs, especially when there are branch prediction penalties.
+We saw some cases where the control-flow is element-wise (`lowerCase`, `pieceWise`),
+some with an early exit (`find`, `mismatch`), and even a case with control-dependent
+loop-carried dependency (`filter`).
+We have seen that different vectorized implementations have different performance characteristics,
+and in some cases the reference implementation remains the fastest implementation we considered
+for a specific case and branch probability.
+We have also seen that sometimes the Vector API fails its goal of "graceful degregation":
+we resort to a Java fallbaack that is horribly slow.
+[There are plans to address that in the future](https://bugs.openjdk.org/browse/JDK-8378373).
+But for now, the recommendation is to implement a reference implementation and a vectorized
+implementation, to benchmark them on each relevant platform, and then run the fastest
+on implementation on the respective platform.
 
-- Branch probability matters: distribution of the input values have an impact on performance.
+Note that all the performance numbers are generated with JDK26, and a later JDK version may
+produce different (hopefully better!) results.
 
 **Please leave a comment below**
 

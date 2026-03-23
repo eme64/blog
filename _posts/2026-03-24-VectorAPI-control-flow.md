@@ -409,12 +409,27 @@ Below, we focus on only the fast cases:
 
 <img width="700" alt="filter performance fast" src="https://github.com/user-attachments/assets/2334f3b8-dff6-40d9-b289-9b5b4c022a3d" />
 
-All implementations are sensitive to the branch probability - except for the Vector API implementation (`v1`)
-that uses `compress`: all operations are executed unconditionally, so performance is constant across all
-branch probabilities.
+Observations:
 
-TODO
-
+- The scalar performance has the classic branch-prediction performance characteristic.
+If most elements are rejected, it is fastest. If most elements are taken, it is slightly
+slower because we need to store the elements. The worst performance happens with
+Branch probability `0.5`, because of the branch misprediction penalty.
+- The Vector API implementation (`v1`) that uses `compress` is the only implementation
+that is not sensitive to the branch probability, as all operations are executed
+unconditionally. It seems to generally be the most performant implementation,
+except for `v2_l8` with very extreme branch probabilities.
+- The `v2` implementations share the same general performance characteristics,
+which are also similar to the scalar performance characteristic.
+This is because `v2` has branches, and thus is sensitive to branch prediction
+behavior. The longer the vector length, the better the perormance in the extreme
+(high and low) branch probability region, because more elements can be taken
+or rejected at a time. The 8-element vector `v2_l8` implementation thus can
+even outperform the `compress` implementation, because `compress` and masked
+store operations are more expensive than non-masked store operations.
+- On `aarch64 NEON`, it seems the scalar performance is the best. I have
+not yet investigated why, but suspect it might be that the vectorized
+`allTrue` and `anyTrue` checks contribute to the overhead.
 
 **Conclusion**
 

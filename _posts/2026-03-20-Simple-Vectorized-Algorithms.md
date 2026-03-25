@@ -190,70 +190,21 @@ for (; i < r.length; i++) {
 
 Running the benchmark on an array with `10000` elements on my `x64 AVX512` laptop, and an `aarch64 NEON` OCI machine:
 
-<img width="550" alt="iota performance 10000" src="https://github.com/user-attachments/assets/a2a37be9-ceb9-4d7f-8fe6-c8c16323a10e" />
+<img width="550" alt="iota performance 10000" src="https://github.com/user-attachments/assets/b06dc6f3-e19f-48c5-b03b-d60e5fac3c3a" />
 
-TODO: I'm currently reworking the section here, stay tuned...
+Observations:
 
-On `AVX512`, both vectorized versions are faster than the scalar performance.
-But auto vectorization seems to produce significantly better results than
-out Vector API implementation. The Vector API produces assembly code that
-simply 16x-unrolls the vectorized store (`intoArray`, `vmovqu32`), and the
-vectorized addition (`add`, `vpaddd`):
+- On AVX512, auto vectorization produces the best results. The Vector API implementation has the same
+as we had with `fill` above: most of the time the stores are unaligned and that produces slower performance.
+If we disable automatic alignment for the auto vectorizer with `-XX:+UnlockDiagnosticVMOptions -XX:SuperWordAutomaticAlignment=0`
+then the performance of the auto vectorizer and our Vector API implementation are comparable.
 
-```
-// zmm1 = iota
-// zmm3 = broadcast(SPECIES_I.length())
-// Loop:
-vmovdqu32 %zmm1,0x10(%rsi,%rdx,4)
-vpaddd %zmm1,%zmm3,%zmm1
-... repeats a total of 16 times ...
-vmovdqu32 %zmm1,0x3d0(%rsi,%rdx,4) // intoArray
-vpaddd %zmm1,%zmm3,%zmm1
-// Exit check, goto Loop
-```
-
-The auto vectorizer only does an 8x-unrolling.
-The assembly code shows that for each of the unrolled chunks,
-we compute the first index element, broadcast it,
-load and add the iota vector from memory,
-and then store that to the output array.
-
-```
-lea    0x70(%rcx),%r10d // compute the index of the first element from i
-vpbroadcastd %r10d,%zmm6
-vmovdqu32 -0x70a14b(%rip),%zmm5 // load iota indices [0, 1, 2, ...]
-vpaddd %zmm6,%zmm5,%zmm5
-vmovdqu32 %zmm5,0x1d0(%r11,%rcx,4) // intoArray
-```
-
-The second Vector API implementation (`v2`), 8x-unrolling.
-While the auto vectorized code loads the iota indices from
-memory for each unrolled iteration, this implementation
-just keeps it stored in register `zmm2`.
-
-```
-lea    0x50(%r8),%ebx // compute the index of the first element from i
-vpbroadcastd %ebx,%zmm6
-vpaddd %zmm6,%zmm2,%zmm6
-vmovdqu32 %zmm6,0x150(%rdi,%r8,4) // intoArray
-```
-
-Hmm, now I can't see any difference though. I think the bigger deal is alignment!
-`-XX:+UnlockDiagnosticVMOptions -XX:SuperWordAutomaticAlignment=0`
-
-Ok, but before we make any conclusions, let's look at NEON.
-
-TODO: check if it is a latency issue?
-
-
-On AVX512, we seem to get a clear speedup from auto vectorization.
-But on NEON, the auto vectorizer seems to fail and we get only scalar performance.
-The VectorAPI implementation seems to generate slightly worse code than the best alternative.
-I inspected the assembly code that is generated on AVX512 - and there is just a small
-difference in the quality for the Vector API and auto vectorized code - with some extra
-time one could probably change the Vector API implementation slightly to get the same performance.
-NEON does not seem to support the vectorized index generation assembly instruction,
-which is at least a part of the explanation why there is no good vectorized performance.
+- On NEON, auto vectorization does not succeed, because the vectorized `PopulateIndex` node is not
+implemented in the NEON backend. As far as I can see, this is just a technical limitation,
+and one could do the same as on x64: simply load the iota values from memory. SVE has
+assembly instructions that generate the iota vector without accessing memory.
+The Vector API implementation provides a small speedup, with a fully vectorized
+loop.
 
 **Conclusion**
 

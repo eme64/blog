@@ -192,6 +192,55 @@ Running the benchmark on an array with `10000` elements on my `x64 AVX512` lapto
 
 <img width="550" alt="iota performance 10000" src="https://github.com/user-attachments/assets/a2a37be9-ceb9-4d7f-8fe6-c8c16323a10e" />
 
+TODO: I'm currently reworking the section here, stay tuned...
+
+On `AVX512`, both vectorized versions are faster than the scalar performance.
+But auto vectorization seems to produce significantly better results than
+out Vector API implementation. The Vector API produces assembly code that
+simply 16x-unrolls the vectorized store (`intoArray`, `vmovqu32`), and the
+vectorized addition (`add`, `vpaddd`):
+
+```
+// zmm1 = iota
+// zmm3 = broadcast(SPECIES_I.length())
+// Loop:
+vmovdqu32 %zmm1,0x10(%rsi,%rdx,4)
+vpaddd %zmm1,%zmm3,%zmm1
+... repeats a total of 16 times ...
+vmovdqu32 %zmm1,0x3d0(%rsi,%rdx,4) // intoArray
+vpaddd %zmm1,%zmm3,%zmm1
+// Exit check, goto Loop
+```
+
+The auto vectorizer only does an 8x-unrolling.
+The assembly code shows that for each of the unrolled chunks,
+we compute the first index element, broadcast it,
+load and add the iota vector from memory,
+and then store that to the output array.
+
+```
+lea    0x70(%rcx),%r10d // compute the index of the first element from i
+vpbroadcastd %r10d,%zmm6
+vmovdqu32 -0x70a14b(%rip),%zmm5 // load iota indices [0, 1, 2, ...]
+vpaddd %zmm6,%zmm5,%zmm5
+vmovdqu32 %zmm5,0x1d0(%r11,%rcx,4) // intoArray
+```
+
+The second Vector API implementation (`v2`), 8x-unrolling.
+While the auto vectorized code loads the iota indices from
+memory for each unrolled iteration, this implementation
+just keeps it stored in register `zmm2`.
+
+```
+lea    0x50(%r8),%ebx // compute the index of the first element from i
+vpbroadcastd %ebx,%zmm6
+vpaddd %zmm6,%zmm2,%zmm6
+vmovdqu32 %zmm6,0x150(%rdi,%r8,4) // intoArray
+```
+
+TODO: check if it is a latency issue?
+
+
 On AVX512, we seem to get a clear speedup from auto vectorization.
 But on NEON, the auto vectorizer seems to fail and we get only scalar performance.
 The VectorAPI implementation seems to generate slightly worse code than the best alternative.

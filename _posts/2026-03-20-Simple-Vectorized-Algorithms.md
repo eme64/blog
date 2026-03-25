@@ -204,7 +204,9 @@ implemented in the NEON backend. As far as I can see, this is just a technical l
 and one could do the same as on x64: simply load the iota values from memory. SVE has
 assembly instructions that generate the iota vector without accessing memory.
 The Vector API implementation provides a small speedup, with a fully vectorized
-loop.
+loop. While writing this blog post, I
+[filed an issue](https://bugs.openjdk.org/browse/JDK-8380928) so we keep track of the
+possible enhancement of the auto vectorizer by enabling `PopulateIndex` on NEON.
 
 **Conclusion**
 

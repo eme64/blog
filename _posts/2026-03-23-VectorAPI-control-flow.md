@@ -98,7 +98,7 @@ We see that the Vector API implementations are clearly faster than the scalar im
 On AVX512 the speedup is 16x - 28x. On NEON the speedup is 12x - 26x.
 Consider that on AVX512 a vector holds 64 byte elements, and on NEON a vector holds 16 byte elements.
 
-While the x-axis shows the time, the y-axis shows the branch probability.
+While the y-axis shows the time, the x-axis shows the branch probability.
 We generate the input randomly, but accordingly to the branch probability:
 
 - If the branch probability is high, we mostly have upper case characters (if-branch).

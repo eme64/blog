@@ -238,6 +238,11 @@ vpaddd %zmm6,%zmm2,%zmm6
 vmovdqu32 %zmm6,0x150(%rdi,%r8,4) // intoArray
 ```
 
+Hmm, now I can't see any difference though. I think the bigger deal is alignment!
+`-XX:+UnlockDiagnosticVMOptions -XX:SuperWordAutomaticAlignment=0`
+
+Ok, but before we make any conclusions, let's look at NEON.
+
 TODO: check if it is a latency issue?
 
 

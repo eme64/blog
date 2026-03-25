@@ -352,7 +352,10 @@ Observations:
 - The reference implementation is not vectorized, but all others are.
 - The `Arrays::mismatch` and `MemorySegment::mismatch` implementation seem to be equally performant.
 - On `AVX512`, the Vector API implementation uses 512 bit (`zmm`) registers, but the `Arrays::mismatch` and `MemorySegment::mismatch` implementations only seem to use 256 bit (`ymm`) registers. Accordingly, the Vector API implementation is about 2x as fast. I suspect that the vectorized intrinsics have not yet been adjusted for AVX512.
-- On my `NEON` machine the Vector API implementation seems to be slightly slower than the `Arrays` and `MemorySegment` implementation - I have not yet investigated why.
+- On my `NEON` machine the Vector API implementation seems to be slightly slower than the `Arrays` and `MemorySegment` implementation, which both use `ArraysSupport::vectorizedMismatch` and use `Unsafe.getIntUnaligned`, to perform
+64-bit accesses. I have not further investigated why that is faster.
+- This benchmark is very similar to `findI`. But `mismatchB` two byte arrays, and in `findI` accesses one int array.
+With `mismatchB` we can put more elements in a vector, and so we get greater speedups.
 
 **Algorithm 5: filter**
 
